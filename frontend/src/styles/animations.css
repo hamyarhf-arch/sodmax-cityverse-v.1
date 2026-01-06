@@ -1,0 +1,642 @@
+/* فایل انیمیشن‌های پیشرفته برای SODmAX CityVerse */
+
+/* انیمیشن ماینینگ */
+@keyframes miningPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(0, 102, 255, 0.3),
+      inset 0 0 20px rgba(0, 102, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 40px rgba(0, 102, 255, 0.5),
+      inset 0 0 30px rgba(0, 102, 255, 0.3);
+  }
+}
+
+@keyframes miningFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+  66% {
+    transform: translateY(-10px) rotate(-5deg);
+  }
+}
+
+@keyframes miningSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes miningGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(0, 102, 255, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(0, 102, 255, 0.8));
+  }
+}
+
+@keyframes miningParticle {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* انیمیشن سکه‌ها */
+@keyframes coinSpin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes coinBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes coinShine {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* انیمیشن شهر */
+@keyframes cityLights {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes buildingRise {
+  from {
+    transform: translateY(100px) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes trafficFlow {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* انیمیشن HUD و رابط کاربری */
+@keyframes hudPulse {
+  0%, 100% {
+    text-shadow: 0 0 10px currentColor;
+  }
+  50% {
+    text-shadow: 0 0 20px currentColor;
+  }
+}
+
+@keyframes hudScan {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
+@keyframes hudGlitch {
+  0%, 100% {
+    transform: translate(0);
+    opacity: 1;
+  }
+  20% {
+    transform: translate(-2px, 2px);
+    opacity: 0.8;
+  }
+  40% {
+    transform: translate(-2px, -2px);
+    opacity: 0.8;
+  }
+  60% {
+    transform: translate(2px, 2px);
+    opacity: 0.8;
+  }
+  80% {
+    transform: translate(2px, -2px);
+    opacity: 0.8;
+  }
+}
+
+@keyframes hudDataFlow {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 100%;
+  }
+}
+
+/* انیمیشن نوتیفیکیشن */
+@keyframes notificationSlide {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes notificationPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes notificationIconSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* انیمیشن مودال */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(20px);
+  }
+}
+
+@keyframes modalSlideUp {
+  from {
+    transform: translateY(100px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes modalShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+/* انیمیشن ترنزیشن صفحات */
+@keyframes pageTransition {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pageSlideRight {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageSlideLeft {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageFadeScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* انیمیشن‌های سه‌بعدی */
+@keyframes threeDSpin {
+  0% {
+    transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
+  }
+  100% {
+    transform: perspective(1000px) rotateY(360deg) rotateX(15deg);
+  }
+}
+
+@keyframes threeDFloat {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  25% {
+    transform: translate3d(0, -10px, 20px);
+  }
+  50% {
+    transform: translate3d(10px, 0, 0);
+  }
+  75% {
+    transform: translate3d(-10px, -10px, -20px);
+  }
+}
+
+@keyframes threeDGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(0, 102, 255, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 30px rgba(0, 102, 255, 0.6))
+           drop-shadow(0 0 50px rgba(0, 102, 255, 0.3));
+  }
+}
+
+/* انیمیشن متن */
+@keyframes textReveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes textGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes textTypewriter {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes textFlicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* انیمیشن‌های تعاملی */
+@keyframes buttonPress {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+}
+
+@keyframes cardHover {
+  0% {
+    transform: translateY(0) rotateX(0);
+  }
+  100% {
+    transform: translateY(-10px) rotateX(5deg);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* انیمیشن‌های بازی */
+@keyframes questComplete {
+  0% {
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+  }
+}
+
+@keyframes levelUp {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.3);
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes rewardRain {
+  0% {
+    transform: translateY(-100px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* انیمیشن‌های خاص SODmAX */
+@keyframes sodPulse {
+  0%, 100% {
+    color: var(--primary);
+    text-shadow: 0 0 10px rgba(0, 102, 255, 0.5);
+  }
+  50% {
+    color: var(--primary-light);
+    text-shadow: 0 0 20px rgba(0, 102, 255, 0.8);
+  }
+}
+
+@keyframes cityVerseGlow {
+  0% {
+    background: var(--gradient-primary);
+    box-shadow: 0 0 20px rgba(0, 102, 255, 0.3);
+  }
+  25% {
+    background: var(--gradient-secondary);
+    box-shadow: 0 0 20px rgba(0, 212, 170, 0.3);
+  }
+  50% {
+    background: var(--gradient-accent);
+    box-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
+  }
+  75% {
+    background: var(--gradient-city);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+  }
+  100% {
+    background: var(--gradient-primary);
+    box-shadow: 0 0 20px rgba(0, 102, 255, 0.3);
+  }
+}
+
+@keyframes miningCore {
+  0% {
+    transform: scale(1) rotate(0deg);
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    transform: scale(1.1) rotate(360deg);
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* کلاس‌های انیمیشن */
+.animate-mining-pulse {
+  animation: miningPulse 3s ease-in-out infinite;
+}
+
+.animate-mining-float {
+  animation: miningFloat 6s ease-in-out infinite;
+}
+
+.animate-mining-spin {
+  animation: miningSpin 20s linear infinite;
+}
+
+.animate-mining-glow {
+  animation: miningGlow 2s ease-in-out infinite;
+}
+
+.animate-coin-spin {
+  animation: coinSpin 3s linear infinite;
+}
+
+.animate-coin-bounce {
+  animation: coinBounce 2s ease-in-out infinite;
+}
+
+.animate-city-lights {
+  animation: cityLights 2s ease-in-out infinite;
+}
+
+.animate-building-rise {
+  animation: buildingRise 0.8s ease-out;
+}
+
+.animate-hud-pulse {
+  animation: hudPulse 2s ease-in-out infinite;
+}
+
+.animate-hud-glitch {
+  animation: hudGlitch 0.5s ease-in-out;
+}
+
+.animate-notification-slide {
+  animation: notificationSlide 0.3s ease-out;
+}
+
+.animate-notification-pulse {
+  animation: notificationPulse 0.3s ease-in-out;
+}
+
+.animate-modal-fade-in {
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+.animate-modal-slide-up {
+  animation: modalSlideUp 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.animate-modal-shake {
+  animation: modalShake 0.5s ease-in-out;
+}
+
+.animate-page-transition {
+  animation: pageTransition 0.5s ease-out;
+}
+
+.animate-three-d-spin {
+  animation: threeDSpin 10s linear infinite;
+}
+
+.animate-three-d-float {
+  animation: threeDFloat 8s ease-in-out infinite;
+}
+
+.animate-text-reveal {
+  animation: textReveal 1s ease-out forwards;
+}
+
+.animate-text-typewriter {
+  animation: textTypewriter 3s steps(40) 1s forwards;
+  white-space: nowrap;
+  overflow: hidden;
+  border-right: 2px solid var(--primary);
+}
+
+.animate-button-press {
+  animation: buttonPress 0.2s ease-out;
+}
+
+.animate-card-hover {
+  animation: cardHover 0.3s ease-out forwards;
+}
+
+.animate-ripple {
+  animation: ripple 0.6s linear;
+}
+
+.animate-quest-complete {
+  animation: questComplete 1s ease-out;
+}
+
+.animate-level-up {
+  animation: levelUp 0.5s ease-out;
+}
+
+.animate-sod-pulse {
+  animation: sodPulse 2s ease-in-out infinite;
+}
+
+.animate-cityverse-glow {
+  animation: cityVerseGlow 10s linear infinite;
+}
+
+.animate-mining-core {
+  animation: miningCore 5s linear infinite;
+}
+
+/* انیمیشن‌های تعویض */
+.animate-fade-enter {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-fade-exit {
+  animation: fadeIn 0.3s ease-out reverse;
+}
+
+.animate-slide-enter {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-slide-exit {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+/* انیمیشن‌های لودینگ */
+.loading-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: loadingDot 1.4s ease-in-out infinite;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes loadingDot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.5);
+    opacity: 0.5;
+  }
+}
+
+/* انیمیشن‌های مخصوص موبایل */
+@media (max-width: 768px) {
+  .animate-mobile-fade {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .animate-mobile-slide-up {
+    animation: modalSlideUp 0.3s ease-out;
+  }
+  
+  .animate-mobile-slide-down {
+    animation: modalSlideUp 0.3s ease-out reverse;
+  }
+}
