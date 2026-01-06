@@ -1,0 +1,50 @@
+[file name]: mobile/app.json
+[file content begin]
+{
+  "name": "SODmAX",
+  "displayName": "SODmAX CityVerse",
+  "expo": {
+    "name": "SODmAX CityVerse",
+    "slug": "sodmax-cityverse",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./src/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0f1c"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sodmax.cityverse",
+      "buildNumber": "1.0.0"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#0a0f1c"
+      },
+      "package": "com.sodmax.cityverse",
+      "versionCode": 1,
+      "permissions": [
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
+[file content end]
