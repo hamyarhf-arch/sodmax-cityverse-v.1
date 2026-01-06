@@ -1,4 +1,3 @@
-// 📁 backend/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -27,7 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rate Limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 100,
     message: {
         success: false,
         error: 'تعداد درخواست‌های شما بیش از حد مجاز است'
@@ -40,7 +39,8 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        service: 'SODmAX CityVerse API'
+        service: 'SODmAX CityVerse API',
+        version: '1.0.0'
     });
 });
 
@@ -86,6 +86,7 @@ async function startServer() {
             console.log(`✅ Server is running on port ${PORT}`);
             console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
             console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
+            console.log(`📊 Routes loaded: Auth, User, Business, Mission`);
         });
         
     } catch (error) {
