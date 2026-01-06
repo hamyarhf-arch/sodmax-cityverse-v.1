@@ -1,141 +1,180 @@
+// mobile/src/context/ToastContext.js
 import React, { createContext, useState, useContext, useCallback } from 'react';
-import Toast from 'react-native-toast-message';
-import { Vibration } from 'react-native';
+import { ToastAndroid, Platform, Alert } from 'react-native';
 
 const ToastContext = createContext();
 
-export const useToast = () => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
-};
+export const useToast = () => useContext(ToastContext);
 
 export const ToastProvider = ({ children }) => {
-  const [toastQueue, setToastQueue] = useState([]);
-  const [currentToast, setCurrentToast] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [visible, setVisible] = useState(false);
 
-  const show = useCallback((type, text1, text2, options = {}) => {
-    const toast = {
-      id: Date.now() + Math.random(),
-      type,
-      text1,
-      text2,
-      position: options.position || 'top',
-      visibilityTime: options.visibilityTime || 4000,
-      autoHide: options.autoHide !== false,
-      topOffset: options.topOffset || 40,
-      bottomOffset: options.bottomOffset || 40,
-      onShow: options.onShow,
-      onHide: options.onHide,
-      onPress: options.onPress,
-      props: options.props || {},
-    };
-
-    if (options.vibrate) {
-      const pattern = typeof options.vibrate === 'boolean' ? [100] : options.vibrate;
-      Vibration.vibrate(pattern);
+  const showToast = useCallback((message, type = 'info', duration = 3000) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.showWithGravityAndOffset(
+        message,
+        ToastAndroid.LONG,
+        ToastAndroid.BOTTOM,
+        0,
+        100
+      );
+    } else {
+      // برای iOS از Alert استفاده می‌کنیم
+      Alert.alert(
+        type === 'error' ? 'خطا' : 
+        type === 'success' ? 'موفق' : 
+        type === 'warning' ? 'هشدار' : 'اطلاع',
+        message,
+        [{ text: 'باشه' }]
+      );
     }
 
-    // Add to queue
-    setToastQueue(prev => [...prev, toast]);
-
-    // If no current toast, show this one
-    if (!currentToast) {
-      showNextToast();
+    // برای وب یا محیط‌های دیگر
+    if (Platform.OS === 'web') {
+      const toast = {
+        id: Date.now(),
+        message,
+        type,
+        duration,
+      };
+      
+      setToasts(prev => [...prev, toast]);
+      setVisible(true);
+      
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== toast.id));
+        if (toasts.length <= 1) {
+          setVisible(false);
+        }
+      }, duration);
     }
-  }, [currentToast]);
+  }, [toasts.length]);
 
-  const showNextToast = () => {
-    if (toastQueue.length === 0) {
-      setCurrentToast(null);
-      return;
-    }
+  const showSuccess = useCallback((message, duration = 3000) => {
+    showToast(message, 'success', duration);
+  }, [showToast]);
 
-    const nextToast = toastQueue[0];
-    setCurrentToast(nextToast);
-    setToastQueue(prev => prev.slice(1));
+  const showError = useCallback((message, duration = 3000) => {
+    showToast(message, 'error', duration);
+  }, [showToast]);
 
-    Toast.show({
-      type: nextToast.type,
-      text1: nextToast.text1,
-      text2: nextToast.text2,
-      position: nextToast.position,
-      visibilityTime: nextToast.visibilityTime,
-      autoHide: nextToast.autoHide,
-      topOffset: nextToast.topOffset,
-      bottomOffset: nextToast.bottomOffset,
-      onShow: () => {
-        if (nextToast.onShow) nextToast.onShow();
-      },
-      onHide: () => {
-        if (nextToast.onHide) nextToast.onHide();
-        showNextToast();
-      },
-      onPress: nextToast.onPress,
-      props: nextToast.props,
-    });
-  };
+  const showWarning = useCallback((message, duration = 3000) => {
+    showToast(message, 'warning', duration);
+  }, [showToast]);
 
-  const hide = useCallback(() => {
-    Toast.hide();
-    setCurrentToast(null);
+  const showInfo = useCallback((message, duration = 3000) => {
+    showToast(message, 'info', duration);
+  }, [showToast]);
+
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
-
-  const success = useCallback((text1, text2, options = {}) => {
-    show('success', text1, text2, { ...options, vibrate: true });
-  }, [show]);
-
-  const error = useCallback((text1, text2, options = {}) => {
-    show('error', text1, text2, { ...options, vibrate: [100, 50, 100] });
-  }, [show]);
-
-  const info = useCallback((text1, text2, options = {}) => {
-    show('info', text1, text2, options);
-  }, [show]);
-
-  const warning = useCallback((text1, text2, options = {}) => {
-    show('warning', text1, text2, options);
-  }, [show]);
-
-  const loading = useCallback((text1, text2, options = {}) => {
-    show('loading', text1, text2, { ...options, autoHide: false });
-  }, [show]);
-
-  const custom = useCallback((component, options = {}) => {
-    Toast.show({
-      type: 'custom',
-      props: { component },
-      ...options,
-    });
-  }, []);
-
-  const clearQueue = useCallback(() => {
-    setToastQueue([]);
-    hide();
-  }, [hide]);
 
   const value = {
-    show,
-    hide,
-    success,
-    error,
-    info,
-    warning,
-    loading,
-    custom,
-    clearQueue,
-    currentToast,
-    queueLength: toastQueue.length,
+    showToast,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    removeToast,
+    toasts,
+    visible,
   };
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <Toast />
     </ToastContext.Provider>
   );
 };
 
-export default ToastContext;
+// کامپوننت Toast برای محیط وب
+export const ToastContainer = () => {
+  const { toasts, removeToast } = useToast();
+  
+  if (toasts.length === 0) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      zIndex: 9999,
+    }}>
+      {toasts.map(toast => {
+        const backgroundColor = 
+          toast.type === 'success' ? '#10B981' :
+          toast.type === 'error' ? '#EF4444' :
+          toast.type === 'warning' ? '#F59E0B' : '#0066FF';
+        
+        return (
+          <div
+            key={toast.id}
+            style={{
+              backgroundColor,
+              color: 'white',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              marginBottom: '10px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              minWidth: '300px',
+              maxWidth: '400px',
+              animation: 'slideIn 0.3s ease-out',
+            }}
+            onClick={() => removeToast(toast.id)}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontWeight: 'bold',
+                  marginBottom: '4px',
+                  fontSize: '14px',
+                }}>
+                  {toast.type === 'success' ? '✅' : 
+                   toast.type === 'error' ? '❌' : 
+                   toast.type === 'warning' ? '⚠️' : 'ℹ️'} 
+                  {toast.type === 'success' ? ' موفق' : 
+                   toast.type === 'error' ? ' خطا' : 
+                   toast.type === 'warning' ? ' هشدار' : ' اطلاع'}
+                </div>
+                <div style={{ fontSize: '13px' }}>{toast.message}</div>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  marginLeft: '10px',
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+    </div>
+  );
+};
