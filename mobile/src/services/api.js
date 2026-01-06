@@ -1,294 +1,402 @@
+// mobile/src/services/api.js
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Config from 'react-native-config';
-import NetInfo from '@react-native-community/netinfo';
-import { Platform } from 'react-native';
 
-// Create axios instance
-const api = axios.create({
-  baseURL: Config.API_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Accept-Language': 'fa',
-    'User-Agent': `SODmAX-Mobile/${Config.APP_VERSION}/${Platform.OS}/${Platform.Version}`,
-  },
-});
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// Request interceptor
-api.interceptors.request.use(
-  async (config) => {
-    // Check network connection
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected) {
-      throw new Error('اتصال اینترنت برقرار نیست');
-    }
-
-    // Add token if available
-    const token = await AsyncStorage.getItem(Config.AUTH_TOKEN_KEY);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // Add device info
-    config.headers['X-Device-ID'] = Config.DEVICE_ID || 'unknown';
-    config.headers['X-App-Version'] = Config.APP_VERSION;
-    config.headers['X-Platform'] = Platform.OS;
-
-    // For POST/PUT requests, add timestamp
-    if (['post', 'put', 'patch'].includes(config.method)) {
-      config.data = {
-        ...config.data,
-        _timestamp: Date.now(),
-        _platform: Platform.OS,
-      };
-    }
-
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor
-api.interceptors.response.use(
-  (response) => {
-    // Handle successful responses
-    return response.data;
-  },
-  async (error) => {
-    // Handle errors
-    if (error.response) {
-      // Server responded with error
-      const { status, data } = error.response;
-
-      switch (status) {
-        case 401:
-          // Unauthorized - clear token and redirect to login
-          await AsyncStorage.multiRemove([
-            Config.AUTH_TOKEN_KEY,
-            Config.REFRESH_TOKEN_KEY,
-            'sodmax_user',
-          ]);
-          
-          // You might want to use a navigation service here
-          // navigationService.navigate('Login');
-          break;
-
-        case 403:
-          // Forbidden
-          throw new Error(data.message || 'دسترسی غیرمجاز');
-
-        case 404:
-          // Not found
-          throw new Error(data.message || 'منبع یافت نشد');
-
-        case 422:
-          // Validation error
-          const validationErrors = data.errors || {};
-          const errorMessages = Object.values(validationErrors).flat();
-          throw new Error(errorMessages.join('\n') || 'خطای اعتبارسنجی');
-
-        case 429:
-          // Rate limited
-          throw new Error('درخواست‌های زیادی ارسال کرده‌اید. لطفاً چند لحظه صبر کنید');
-
-        case 500:
-        case 502:
-        case 503:
-        case 504:
-          // Server errors
-          throw new Error('خطای سرور. لطفاً بعداً تلاش کنید');
-
-        default:
-          throw new Error(data.message || `خطای ${status}`);
-      }
-    } else if (error.request) {
-      // Request made but no response
-      if (error.code === 'ECONNABORTED') {
-        throw new Error('زمان درخواست به پایان رسید');
-      } else if (error.message === 'Network Error') {
-        throw new Error('خطای شبکه. اتصال اینترنت خود را بررسی کنید');
-      } else {
-        throw new Error('خطا در ارتباط با سرور');
-      }
-    } else {
-      // Something else happened
-      throw new error;
-    }
-  }
-);
-
-// API methods
-const apiService = {
-  // Auth
-  login: (data) => api.post('/auth/login', data),
-  register: (data) => api.post('/auth/register', data),
-  logout: () => api.post('/auth/logout'),
-  verifyPhone: (data) => api.post('/auth/verify-phone', data),
-  forgotPassword: (data) => api.post('/auth/forgot-password', data),
-  resetPassword: (data) => api.post('/auth/reset-password', data),
-  refreshToken: (data) => api.post('/auth/refresh', data),
-
-  // User
-  getProfile: () => api.get('/user/profile'),
-  updateProfile: (data) => api.put('/user/profile', data),
-  changePassword: (data) => api.post('/user/change-password', data),
-  getReferrals: (params) => api.get('/user/referrals', { params }),
-  getUserStats: () => api.get('/user/stats'),
-
-  // Mining
-  getMiningStats: () => api.get('/mining/stats'),
-  manualMine: (data) => api.post('/mining/mine', data),
-  autoMine: (data) => api.post('/mining/auto-mine', data),
-  toggleAutoMining: (data) => api.post('/mining/toggle-auto', data),
-  boostMining: (data) => api.post('/mining/boost', data),
-  upgradeMiner: (data) => api.post('/mining/upgrade', data),
-  getUpgrades: () => api.get('/mining/upgrades'),
-  getMiningHistory: (params) => api.get('/mining/history', { params }),
-
-  // Wallet
-  getWalletBalance: () => api.get('/wallet/balance'),
-  convertCurrency: (data) => api.post('/wallet/convert', data),
-  withdrawFunds: (data) => api.post('/wallet/withdraw', data),
-  depositFunds: (data) => api.post('/wallet/deposit', data),
-  getTransactions: (params) => api.get('/wallet/transactions', { params }),
-  getConversionRates: () => api.get('/wallet/conversion-rates'),
-  getWithdrawalMethods: () => api.get('/wallet/withdrawal-methods'),
-  getDepositMethods: () => api.get('/wallet/deposit-methods'),
-
-  // Missions
-  getMissions: (params) => api.get('/missions', { params }),
-  getMissionDetails: (id) => api.get(`/missions/${id}`),
-  startMission: (id) => api.post(`/missions/${id}/start`),
-  completeMission: (id) => api.post(`/missions/${id}/complete`),
-  claimReward: (id) => api.post(`/missions/${id}/claim`),
-
-  // Rewards
-  getDailyReward: () => api.get('/rewards/daily'),
-  claimDailyReward: () => api.post('/rewards/daily/claim'),
-  getAvailableRewards: () => api.get('/rewards/available'),
-  claimReward: (id) => api.post(`/rewards/${id}/claim`),
-
-  // Invite
-  getInviteStats: () => api.get('/invite/stats'),
-  generateInviteLink: () => api.post('/invite/generate-link'),
-  getReferralHistory: (params) => api.get('/invite/history', { params }),
-  validateReferralCode: (code) => api.post('/invite/validate-code', { code }),
-
-  // Business
-  getBusinessProfile: () => api.get('/business/profile'),
-  updateBusinessProfile: (data) => api.put('/business/profile', data),
-  createCampaign: (data) => api.post('/business/campaigns', data),
-  getCampaigns: (params) => api.get('/business/campaigns', { params }),
-  getCampaignAnalytics: (id) => api.get(`/business/campaigns/${id}/analytics`),
-
-  // Support
-  createTicket: (data) => api.post('/support/tickets', data),
-  getTickets: (params) => api.get('/support/tickets', { params }),
-  getTicketMessages: (id) => api.get(`/support/tickets/${id}/messages`),
-  sendMessage: (id, data) => api.post(`/support/tickets/${id}/messages`, data),
-  getFAQs: (params) => api.get('/support/faqs', { params }),
-
-  // System
-  getAppConfig: () => api.get('/system/config'),
-  getNotifications: (params) => api.get('/system/notifications', { params }),
-  markNotificationAsRead: (id) => api.post(`/system/notifications/${id}/read`),
-  clearNotifications: () => api.delete('/system/notifications'),
-
-  // File upload
-  uploadFile: (file, type = 'avatar') => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
-    
-    return api.post('/upload', formData, {
+class ApiService {
+  constructor() {
+    this.client = axios.create({
+      baseURL: API_BASE_URL,
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
+      timeout: 30000,
     });
-  },
 
-  // Set/remove token
-  setToken: (token) => {
-    api.defaults.headers.Authorization = `Bearer ${token}`;
-  },
-  removeToken: () => {
-    delete api.defaults.headers.Authorization;
-  },
+    // Interceptor برای اضافه کردن توکن
+    this.client.interceptors.request.use(
+      config => {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      error => Promise.reject(error)
+    );
 
-  // Mock API for development
-  mock: {
-    login: async (phone, password) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (phone === '09123456789' && password === '123456') {
-        return {
-          success: true,
-          data: {
-            token: 'mock_jwt_token',
-            refreshToken: 'mock_refresh_token',
-            user: {
-              id: 1,
-              name: 'علی محمدی',
-              phone: '09123456789',
-              email: 'ali@example.com',
-              avatar: 'ع',
-              level: 5,
-              totalEarned: 124500,
-              referralCount: 24,
-              sodBalance: 1845200,
-              tomanBalance: 28400,
-              joinDate: '۱۴۰۲/۰۵/۱۰',
-              lastLogin: 'امروز',
-              role: 'user',
-            },
-          },
-        };
-      } else {
-        throw new Error('شماره موبایل یا رمز عبور اشتباه است');
+    // Interceptor برای مدیریت خطاها
+    this.client.interceptors.response.use(
+      response => response.data,
+      error => {
+        if (error.response) {
+          switch (error.response.status) {
+            case 401:
+              // عدم احراز هویت
+              localStorage.removeItem('auth_token');
+              window.location.href = '/login';
+              break;
+            case 403:
+              console.error('دسترسی غیرمجاز');
+              break;
+            case 404:
+              console.error('منبع یافت نشد');
+              break;
+            case 500:
+              console.error('خطای سرور');
+              break;
+          }
+        }
+        return Promise.reject(error);
       }
-    },
+    );
+  }
 
-    getWalletBalance: async () => {
-      await new Promise(resolve => setTimeout(resolve, 500));
+  // ==================== احراز هویت ====================
+  auth = {
+    // ورود
+    login: (phone, password) => 
+      this.client.post('/auth/login', { phone, password }),
+
+    // ثبت‌نام
+    register: (userData) => 
+      this.client.post('/auth/register', userData),
+
+    // دریافت اطلاعات کاربر
+    getMe: () => 
+      this.client.get('/auth/me'),
+
+    // به‌روزرسانی پروفایل
+    updateProfile: (userData) => 
+      this.client.put('/auth/profile', userData),
+
+    // تغییر رمز عبور
+    changePassword: (currentPassword, newPassword) => 
+      this.client.post('/auth/change-password', { currentPassword, newPassword }),
+
+    // بازیابی رمز عبور
+    forgotPassword: (phone) => 
+      this.client.post('/auth/forgot-password', { phone }),
+
+    // تأیید کد بازیابی
+    verifyResetCode: (phone, code) => 
+      this.client.post('/auth/verify-reset-code', { phone, code }),
+
+    // بازنشانی رمز عبور
+    resetPassword: (phone, code, newPassword) => 
+      this.client.post('/auth/reset-password', { phone, code, newPassword }),
+  };
+
+  // ==================== کاربران ====================
+  users = {
+    // دریافت اطلاعات کاربر
+    getUser: (userId) => 
+      this.client.get(`/users/${userId}`),
+
+    // دریافت زیرمجموعه‌ها
+    getReferrals: (userId) => 
+      this.client.get(`/users/${userId}/referrals`),
+
+    // به‌روزرسانی اطلاعات کاربر
+    updateUser: (userId, userData) => 
+      this.client.put(`/users/${userId}`, userData),
+
+    // دریافت آمار کاربر
+    getUserStats: (userId) => 
+      this.client.get(`/users/${userId}/stats`),
+
+    // ارتقاء سطح
+    upgradeLevel: (userId) => 
+      this.client.post(`/users/${userId}/upgrade`),
+  };
+
+  // ==================== استخراج ====================
+  mining = {
+    // استخراج دستی
+    manualMine: (userId) => 
+      this.client.post(`/mining/manual/${userId}`),
+
+    // شروع استخراج خودکار
+    startAutoMining: (userId) => 
+      this.client.post(`/mining/auto/start/${userId}`),
+
+    // توقف استخراج خودکار
+    stopAutoMining: (userId) => 
+      this.client.post(`/mining/auto/stop/${userId}`),
+
+    // خرید بوست
+    buyBoost: (userId, boostType) => 
+      this.client.post(`/mining/boost/${userId}`, { boostType }),
+
+    // ارتقاء ماینر
+    upgradeMiner: (userId) => 
+      this.client.post(`/mining/upgrade/${userId}`),
+
+    // دریافت آمار استخراج
+    getMiningStats: (userId) => 
+      this.client.get(`/mining/stats/${userId}`),
+
+    // دریافت تاریخچه استخراج
+    getMiningHistory: (userId, limit = 50) => 
+      this.client.get(`/mining/history/${userId}?limit=${limit}`),
+  };
+
+  // ==================== کیف پول ====================
+  wallet = {
+    // دریافت موجودی
+    getBalance: (userId) => 
+      this.client.get(`/wallet/balance/${userId}`),
+
+    // برداشت
+    withdraw: (userId, amount, currency, walletAddress) => 
+      this.client.post(`/wallet/withdraw/${userId}`, { amount, currency, walletAddress }),
+
+    // تبدیل ارز
+    convertCurrency: (userId, fromCurrency, toCurrency, amount) => 
+      this.client.post(`/wallet/convert/${userId}`, { fromCurrency, toCurrency, amount }),
+
+    // خرید SOD
+    buySod: (userId, amount, paymentMethod) => 
+      this.client.post(`/wallet/buy-sod/${userId}`, { amount, paymentMethod }),
+
+    // دریافت تاریخچه تراکنش‌ها
+    getTransactionHistory: (userId, limit = 50, offset = 0) => 
+      this.client.get(`/wallet/transactions/${userId}?limit=${limit}&offset=${offset}`),
+
+    // بررسی وضعیت برداشت
+    getWithdrawalStatus: (userId, withdrawalId) => 
+      this.client.get(`/wallet/withdrawal-status/${userId}/${withdrawalId}`),
+
+    // دریافت آدرس‌های کیف پول
+    getWalletAddresses: (userId) => 
+      this.client.get(`/wallet/addresses/${userId}`),
+
+    // اضافه کردن آدرس کیف پول
+    addWalletAddress: (userId, currency, address, network) => 
+      this.client.post(`/wallet/addresses/${userId}`, { currency, address, network }),
+  };
+
+  // ==================== مأموریت‌ها ====================
+  missions = {
+    // دریافت مأموریت‌های فعال
+    getActiveMissions: (userId) => 
+      this.client.get(`/missions/active/${userId}`),
+
+    // دریافت همه مأموریت‌ها
+    getAllMissions: (userId, filter = 'all') => 
+      this.client.get(`/missions/all/${userId}?filter=${filter}`),
+
+    // دریافت مأموریت خاص
+    getMission: (missionId) => 
+      this.client.get(`/missions/${missionId}`),
+
+    // شروع مأموریت
+    startMission: (userId, missionId) => 
+      this.client.post(`/missions/start/${userId}`, { missionId }),
+
+    // تکمیل مأموریت
+    completeMission: (userId, missionId) => 
+      this.client.post(`/missions/complete/${userId}`, { missionId }),
+
+    // دریافت پاداش
+    claimReward: (userId, missionId) => 
+      this.client.post(`/missions/claim/${userId}`, { missionId }),
+
+    // دریافت دستاوردها
+    getAchievements: (userId) => 
+      this.client.get(`/missions/achievements/${userId}`),
+  };
+
+  // ==================== پاداش‌ها ====================
+  rewards = {
+    // دریافت پاداش‌های موجود
+    getAvailableRewards: (userId) => 
+      this.client.get(`/rewards/available/${userId}`),
+
+    // دریافت پاداش روزانه
+    claimDailyReward: (userId) => 
+      this.client.post(`/rewards/daily/${userId}`),
+
+    // دریافت پاداش هفتگی
+    claimWeeklyReward: (userId) => 
+      this.client.post(`/rewards/weekly/${userId}`),
+
+    // دریافت پاداش ماهانه
+    claimMonthlyReward: (userId) => 
+      this.client.post(`/rewards/monthly/${userId}`),
+
+    // دریافت پاداش ویژه
+    claimSpecialReward: (userId, rewardId) => 
+      this.client.post(`/rewards/special/${userId}`, { rewardId }),
+
+    // دریافت تاریخچه پاداش‌ها
+    getRewardHistory: (userId, limit = 30) => 
+      this.client.get(`/rewards/history/${userId}?limit=${limit}`),
+  };
+
+  // ==================== دعوت دوستان ====================
+  referrals = {
+    // دریافت اطلاعات دعوت
+    getReferralInfo: (userId) => 
+      this.client.get(`/referrals/info/${userId}`),
+
+    // دریافت لینک دعوت
+    getReferralLink: (userId) => 
+      this.client.get(`/referrals/link/${userId}`),
+
+    // دریافت لیست دعوت‌ها
+    getReferralList: (userId, status = 'all') => 
+      this.client.get(`/referrals/list/${userId}?status=${status}`),
+
+    // ثبت دعوت جدید
+    addReferral: (userId, referredPhone) => 
+      this.client.post(`/referrals/add/${userId}`, { referredPhone }),
+
+    // تأیید دعوت
+    confirmReferral: (userId, referralId) => 
+      this.client.post(`/referrals/confirm/${userId}`, { referralId }),
+
+    // دریافت پاداش دعوت
+    claimReferralReward: (userId, referralId) => 
+      this.client.post(`/referrals/claim/${userId}`, { referralId }),
+
+    // دریافت آمار دعوت
+    getReferralStats: (userId) => 
+      this.client.get(`/referrals/stats/${userId}`),
+  };
+
+  // ==================== نوتیفیکیشن‌ها ====================
+  notifications = {
+    // دریافت نوتیفیکیشن‌ها
+    getNotifications: (userId, limit = 20) => 
+      this.client.get(`/notifications/${userId}?limit=${limit}`),
+
+    // علامت‌گذاری به عنوان خوانده شده
+    markAsRead: (userId, notificationId) => 
+      this.client.post(`/notifications/mark-read/${userId}`, { notificationId }),
+
+    // علامت‌گذاری همه به عنوان خوانده شده
+    markAllAsRead: (userId) => 
+      this.client.post(`/notifications/mark-all-read/${userId}`),
+
+    // حذف نوتیفیکیشن
+    deleteNotification: (userId, notificationId) => 
+      this.client.delete(`/notifications/${userId}/${notificationId}`),
+
+    // دریافت تعداد نوتیفیکیشن‌های خوانده نشده
+    getUnreadCount: (userId) => 
+      this.client.get(`/notifications/unread-count/${userId}`),
+
+    // ارسال نوتیفیکیشن
+    sendNotification: (userId, title, message, type = 'info') => 
+      this.client.post(`/notifications/send/${userId}`, { title, message, type }),
+  };
+
+  // ==================== کسب‌وکارها ====================
+  businesses = {
+    // دریافت لیست کسب‌وکارها
+    getAllBusinesses: (filters = {}) => 
+      this.client.get('/businesses', { params: filters }),
+
+    // دریافت کسب‌وکار خاص
+    getBusiness: (businessId) => 
+      this.client.get(`/businesses/${businessId}`),
+
+    // ایجاد کمپین
+    createCampaign: (businessId, campaignData) => 
+      this.client.post(`/businesses/${businessId}/campaigns`, campaignData),
+
+    // دریافت کمپین‌های کسب‌وکار
+    getBusinessCampaigns: (businessId) => 
+      this.client.get(`/businesses/${businessId}/campaigns`),
+
+    // ثبت‌نام در کمپین
+    joinCampaign: (userId, campaignId) => 
+      this.client.post(`/campaigns/join/${userId}`, { campaignId }),
+
+    // تکمیل کمپین
+    completeCampaign: (userId, campaignId) => 
+      this.client.post(`/campaigns/complete/${userId}`, { campaignId }),
+  };
+
+  // ==================== پشتیبانی ====================
+  support = {
+    // ایجاد تیکت
+    createTicket: (userId, title, message, category) => 
+      this.client.post('/support/tickets', { userId, title, message, category }),
+
+    // دریافت تیکت‌ها
+    getTickets: (userId, status = 'all') => 
+      this.client.get(`/support/tickets/${userId}?status=${status}`),
+
+    // دریافت یک تیکت
+    getTicket: (ticketId) => 
+      this.client.get(`/support/tickets/${ticketId}`),
+
+    // پاسخ به تیکت
+    replyToTicket: (ticketId, message) => 
+      this.client.post(`/support/tickets/${ticketId}/reply`, { message }),
+
+    // بستن تیکت
+    closeTicket: (ticketId) => 
+      this.client.post(`/support/tickets/${ticketId}/close`),
+
+    // دریافت سوالات متداول
+    getFAQs: (category = 'all') => 
+      this.client.get(`/support/faqs?category=${category}`),
+  };
+
+  // ==================== فایل‌ها ====================
+  files = {
+    // آپلود تصویر پروفایل
+    uploadProfileImage: (userId, file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', userId);
       
-      return {
-        success: true,
-        data: {
-          balances: {
-            SOD: 1845200,
-            Toman: 28400,
-            USDT: 120.5,
-            Busd: 0,
-          },
-          totalInToman: 1845200 * 0.01 + 28400 + 120.5 * 300000,
+      return this.client.post('/files/upload/profile', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
         },
-      };
+      });
     },
 
-    getMiningStats: async () => {
-      await new Promise(resolve => setTimeout(resolve, 300));
+    // آپلود فایل
+    uploadFile: (userId, file, type) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', userId);
+      formData.append('type', type);
       
-      return {
-        success: true,
-        data: {
-          level: 5,
-          power: 18,
-          rewardPerClick: 18,
-          totalMined: 1845200,
-          todayEarned: 2450,
-          multiplier: 1,
-          efficiency: 1.2,
-          autoMining: false,
-          boostActive: false,
+      return this.client.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
         },
-      };
+      });
     },
-  },
-};
+  };
 
-// Export the API service
-export default apiService;
+  // ==================== سرویس‌های کمکی ====================
+  utils = {
+    // بررسی وضعیت سرور
+    checkServerStatus: () => 
+      this.client.get('/health'),
+
+    // دریافت نسخه
+    getVersion: () => 
+      this.client.get('/version'),
+
+    // دریافت تنظیمات
+    getSettings: () => 
+      this.client.get('/settings'),
+
+    // به‌روزرسانی تنظیمات
+    updateSettings: (settings) => 
+      this.client.put('/settings', settings),
+  };
+}
+
+// ایجاد نمونه singleton
+const api = new ApiService();
+export default api;
