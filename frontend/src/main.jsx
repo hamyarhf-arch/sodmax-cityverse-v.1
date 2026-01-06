@@ -1,227 +1,173 @@
+// frontend/src/main.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter as Router } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext';
 import { MissionProvider } from './contexts/MissionContext';
-import { WalletProvider } from './contexts/WalletContext';
-import { BusinessProvider } from './contexts/BusinessContext';
 import App from './App';
+
+// Import global styles
 import './styles/main.css';
+import './styles/variables.css';
+import './styles/animations.css';
 
-// Create Query Client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
-      retry: 1,
-      refetchOnWindowFocus: false,
-      refetchOnMount: true,
-      refetchOnReconnect: true,
-    },
-  },
-});
-
-// Configure React Query DevTools based on environment
-const enableDevTools = import.meta.env.DEV;
-
-// Set document direction for RTL
-document.documentElement.dir = 'rtl';
-
-// Hide loading screen
-const hideLoadingScreen = () => {
-  const loadingScreen = document.getElementById('loading-screen');
-  if (loadingScreen) {
-    loadingScreen.style.opacity = '0';
-    setTimeout(() => {
-      loadingScreen.style.display = 'none';
-    }, 500);
+// Error boundary for production
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
   }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Application error:', error, errorInfo);
+    
+    // Send error to analytics service (optional)
+    if (window.gtag) {
+      window.gtag('event', 'exception', {
+        description: error.message,
+        fatal: true,
+      });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          padding: '20px',
+          textAlign: 'center',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+        }}>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>😵</h1>
+          <h2 style={{ marginBottom: '1rem' }}>Something went wrong</h2>
+          <p style={{ marginBottom: '2rem', maxWidth: '500px' }}>
+            We apologize for the inconvenience. Please try refreshing the page.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '10px 30px',
+              background: 'white',
+              color: '#667eea',
+              border: 'none',
+              borderRadius: '25px',
+              fontSize: '1rem',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'transform 0.2s',
+            }}
+            onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
+            onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+          >
+            Refresh Page
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Main render function
+const renderApp = () => {
+  const rootElement = document.getElementById('root');
+  
+  if (!rootElement) {
+    console.error('Root element not found!');
+    return;
+  }
+
+  const root = ReactDOM.createRoot(rootElement);
+
+  root.render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthProvider>
+            <MissionProvider>
+              <App />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
+                  },
+                  success: {
+                    duration: 3000,
+                    iconTheme: {
+                      primary: '#10B981',
+                      secondary: '#FFFFFF',
+                    },
+                  },
+                  error: {
+                    duration: 5000,
+                    iconTheme: {
+                      primary: '#EF4444',
+                      secondary: '#FFFFFF',
+                    },
+                  },
+                }}
+              />
+            </MissionProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
 };
 
 // Initialize app
-const initApp = () => {
-  const root = ReactDOM.createRoot(document.getElementById('root'));
-  
-  root.render(
-    <React.StrictMode>
-      <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <Router>
-            <AuthProvider>
-              <MissionProvider>
-                <WalletProvider>
-                  <BusinessProvider>
-                    <App />
-                    
-                    {/* Toast Notifications */}
-                    <Toaster
-                      position="top-center"
-                      reverseOrder={false}
-                      gutter={12}
-                      containerStyle={{
-                        top: 80,
-                      }}
-                      toastOptions={{
-                        duration: 4000,
-                        style: {
-                          background: '#1e293b',
-                          color: '#f8fafc',
-                          border: '1px solid #334155',
-                          borderRadius: '12px',
-                          fontFamily: 'Vazirmatn, sans-serif',
-                          fontSize: '14px',
-                          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
-                          maxWidth: '400px',
-                          padding: '16px',
-                        },
-                        success: {
-                          iconTheme: {
-                            primary: '#10b981',
-                            secondary: '#ffffff',
-                          },
-                          style: {
-                            borderLeft: '4px solid #10b981',
-                          },
-                        },
-                        error: {
-                          iconTheme: {
-                            primary: '#ef4444',
-                            secondary: '#ffffff',
-                          },
-                          style: {
-                            borderLeft: '4px solid #ef4444',
-                          },
-                        },
-                        loading: {
-                          iconTheme: {
-                            primary: '#3b82f6',
-                            secondary: '#ffffff',
-                          },
-                          style: {
-                            borderLeft: '4px solid #3b82f6',
-                          },
-                        },
-                      }}
-                    />
-                    
-                    {/* React Query DevTools (Development only) */}
-                    {enableDevTools && <ReactQueryDevtools initialIsOpen={false} />}
-                  </BusinessProvider>
-                </WalletProvider>
-              </MissionProvider>
-            </AuthProvider>
-          </Router>
-        </QueryClientProvider>
-      </HelmetProvider>
-    </React.StrictMode>
-  );
-  
-  // Hide loading screen after render
-  setTimeout(hideLoadingScreen, 500);
-};
-
-// Error boundary for initialization
-try {
-  initApp();
-} catch (error) {
-  console.error('Failed to initialize app:', error);
-  
-  // Show error screen
-  const root = document.getElementById('root');
-  if (root) {
-    root.innerHTML = `
-      <div style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #0a0f1c 0%, #131a2d 100%);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
-        text-align: center;
-        font-family: 'Vazirmatn', sans-serif;
-        color: white;
-      ">
-        <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-        <h1 style="font-size: 24px; margin-bottom: 16px; color: #ef4444;">
-          خطا در بارگذاری برنامه
-        </h1>
-        <p style="color: #9ca3af; margin-bottom: 24px; max-width: 500px;">
-          متأسفانه در بارگذاری برنامه مشکلی پیش آمده است. لطفاً صفحه را Refresh کنید.
-        </p>
-        <button onclick="window.location.reload()" style="
-          background: linear-gradient(135deg, #0066FF 0%, #3395FF 100%);
-          color: white;
-          border: none;
-          padding: 12px 24px;
-          border-radius: 12px;
-          font-family: 'Vazirmatn', sans-serif;
-          font-size: 16px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: transform 0.2s ease;
-        ">
-          🔄 بارگذاری مجدد
-        </button>
-      </div>
-    `;
-  }
-  
-  hideLoadingScreen();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderApp);
+} else {
+  renderApp();
 }
 
-// Performance monitoring (optional)
-if (import.meta.env.PROD) {
+// Service worker registration (optional - for PWA)
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(
+      (registration) => {
+        console.log('ServiceWorker registration successful: ', registration.scope);
+      },
+      (error) => {
+        console.log('ServiceWorker registration failed: ', error);
+      }
+    );
+  });
+}
+
+// Performance monitoring
+if (process.env.NODE_ENV === 'production') {
   // Report web vitals
-  const reportWebVitals = (onPerfEntry) => {
-    if (onPerfEntry && onPerfEntry instanceof Function) {
-      import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
-        getCLS(onPerfEntry);
-        getFID(onPerfEntry);
-        getFCP(onPerfEntry);
-        getLCP(onPerfEntry);
-        getTTFB(onPerfEntry);
+  const reportWebVitals = (metric) => {
+    console.log('Web Vitals:', metric);
+    
+    // Send to analytics
+    if (window.gtag && metric.name === 'CLS') {
+      window.gtag('event', 'web_vitals', {
+        event_category: 'Web Vitals',
+        event_label: metric.name,
+        value: Math.round(metric.value * 1000), // Convert to ms
+        non_interaction: true,
       });
     }
   };
   
-  // You can add your analytics provider here
-  // reportWebVitals(console.log);
+  // You would import and call this from 'web-vitals' package
+  // import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals';
 }
-
-// Service Worker Registration
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered: ', registration);
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
-      });
-  });
-}
-
-// Offline detection
-window.addEventListener('online', () => {
-  // You can show a toast or update UI when online
-  console.log('App is online');
-});
-
-window.addEventListener('offline', () => {
-  // You can show a toast or update UI when offline
-  console.log('App is offline');
-});
-
-// Export for potential module usage
-export { queryClient };
