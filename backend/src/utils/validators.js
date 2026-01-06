@@ -165,4 +165,71 @@ const validators = {
     if (parseFloat(value) < min) {
       throw new Error(`Value must be at least ${min}`);
     }
-    return true
+    return true;
+  },
+
+  // Maximum value validator
+  maxValue: (max) => (value) => {
+    if (parseFloat(value) > max) {
+      throw new Error(`Value cannot exceed ${max}`);
+    }
+    return true;
+  },
+
+  // Percentage validator
+  isPercentage: (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0 || num > 100) {
+      throw new Error('Must be a valid percentage between 0 and 100');
+    }
+    return true;
+  },
+
+  // Rating validator
+  isRating: (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 1 || num > 5) {
+      throw new Error('Rating must be between 1 and 5');
+    }
+    return true;
+  },
+
+  // Coordinate validator
+  isCoordinate: (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < -180 || num > 180) {
+      throw new Error('Coordinate must be between -180 and 180');
+    }
+    return true;
+  },
+
+  // Validate wallet signature
+  validateSignature: async (walletAddress, signature, message) => {
+    try {
+      const recoveredAddress = web3.eth.accounts.recover(message, signature);
+      return recoveredAddress.toLowerCase() === walletAddress.toLowerCase();
+    } catch (error) {
+      return false;
+    }
+  }
+};
+
+// Express validator middleware creators
+const createValidator = (fieldName, validatorFn, customMessage = null) => {
+  return body(fieldName).custom((value, { req }) => {
+    try {
+      const result = validatorFn(value, req);
+      if (result === true || result === undefined) {
+        return true;
+      }
+      throw new Error(customMessage || 'Validation failed');
+    } catch (error) {
+      throw new Error(customMessage || error.message);
+    }
+  });
+};
+
+module.exports = {
+  ...validators,
+  createValidator
+};
