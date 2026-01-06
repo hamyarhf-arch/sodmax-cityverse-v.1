@@ -1,352 +1,443 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Services
-import api from '../services/api';
+// mobile/src/context/WalletContext.js
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
+import api from '../services/api';
 
 const WalletContext = createContext();
 
-export const useWallet = () => {
-  const context = useContext(WalletContext);
-  if (!context) {
-    throw new Error('useWallet must be used within a WalletProvider');
-  }
-  return context;
-};
+export const useWallet = () => useContext(WalletContext);
 
 export const WalletProvider = ({ children }) => {
-  const { user, token, isAuthenticated } = useAuth();
-  const toast = useToast();
+  const { user } = useAuth();
+  const { showSuccess, showError, showInfo } = useToast();
 
-  const [wallet, setWallet] = useState({
-    SOD: 0,
-    Toman: 0,
-    USDT: 0,
-    Busd: 0,
+  const [balances, setBalances] = useState({
+    sod: 0,
+    toman: 0,
+    usdt: 0,
+    total: 0,
   });
-  
+
   const [transactions, setTransactions] = useState([]);
-  const [conversionRates, setConversionRates] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [withdrawalLimits, setWithdrawalLimits] = useState({
-    min: 10000,
-    max: 5000000,
-    feePercent: 2.5,
+  const [walletStats, setWalletStats] = useState({
+    totalEarned: 0,
+    totalWithdrawn: 0,
+    pendingWithdrawals: 0,
+    conversionRate: 1,
   });
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      loadWalletData();
-      loadConversionRates();
-    }
-  }, [isAuthenticated, user]);
+  const [addresses, setAddresses] = useState({
+    sod: '',
+    toman: '',
+    usdt: '',
+  });
 
-  const loadWalletData = async () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // بارگذاری داده‌های کیف پول
+  const loadWalletData = useCallback(async () => {
+    if (!user) return;
+
     try {
       setIsLoading(true);
       
-      // Try to load from cache first
-      const cachedWallet = await AsyncStorage.getItem('sodmax_wallet_cache');
-      const cachedTransactions = await AsyncStorage.getItem('sodmax_transactions_cache');
-      
-      if (cachedWallet) {
-        setWallet(JSON.parse(cachedWallet));
-      }
-      
-      if (cachedTransactions) {
-        setTransactions(JSON.parse(cachedTransactions));
-      }
-      
-      // Then fetch fresh data from API
-      await refreshWallet();
-      
-    } catch (error) {
-      console.error('Error loading wallet data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const refreshWallet = async () => {
-    try {
-      const [walletResponse, transactionsResponse] = await Promise.all([
-        api.get('/wallet/balance'),
-        api.get('/wallet/transactions', { params: { limit: 20 } }),
+      const [balanceRes, transactionsRes, statsRes, addressesRes] = await Promise.all([
+        api.wallet.getBalance(user.id),
+        api.wallet.getTransactionHistory(user.id, 20, 0),
+        api.wallet.getStats(user.id),
+        api.wallet.getWalletAddresses(user.id),
       ]);
 
-      if (walletResponse.success) {
-        setWallet(walletResponse.data.balances);
-        await AsyncStorage.setItem('sodmax_wallet_cache', JSON.stringify(walletResponse.data.balances));
+      if (balanceRes.success) {
+        setBalances(balanceRes.data);
       }
 
-      if (transactionsResponse.success) {
-        setTransactions(transactionsResponse.data.transactions);
-        await AsyncStorage.setItem('sodmax_transactions_cache', JSON.stringify(transactionsResponse.data.transactions));
+      if (transactionsRes.success) {
+        setTransactions(transactionsRes.data);
+      }
+
+      if (statsRes.success) {
+        setWalletStats(statsRes.data);
+      }
+
+      if (addressesRes.success) {
+        setAddresses(addressesRes.data);
       }
     } catch (error) {
-      console.error('Error refreshing wallet:', error);
-      throw error;
+      console.error('Error loading wallet data:', error);
+      showError('خطا در بارگذاری اطلاعات کیف پول');
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [user, showError]);
 
-  const getConversionRates = async () => {
-    try {
-      const response = await api.get('/wallet/conversion-rates');
-      if (response.success) {
-        setConversionRates(response.data.rates);
-        return response.data.rates;
+  // اضافه کردن موجودی
+  const addBalance = useCallback((currency, amount) => {
+    setBalances(prev => ({
+      ...prev,
+      [currency]: (prev[currency] || 0) + amount,
+      total: prev.total + amount,
+    }));
+
+    // ثبت تراکنش
+    const transaction = {
+      id: Date.now(),
+      type: 'افزایش موجودی',
+      amount,
+      currency,
+      status: 'موفق',
+      timestamp: new Date().toISOString(),
+      description: `افزایش موجودی ${currency.toUpperCase()}`,
+    };
+
+    setTransactions(prev => [transaction, ...prev]);
+  }, []);
+
+  // کسر موجودی
+  const deductBalance = useCallback((currency, amount) => {
+    setBalances(prev => {
+      const currentBalance = prev[currency] || 0;
+      
+      if (currentBalance < amount) {
+        showError('موجودی کافی نیست');
+        return prev;
       }
-    } catch (error) {
-      console.error('Error getting conversion rates:', error);
-      // Fallback to default rates
+
       return {
-        SOD_TO_Toman: 0.01,
-        Toman_TO_USDT: 1/300000,
-        USDT_TO_Busd: 1,
-        Busd_TO_Toman: 300000,
+        ...prev,
+        [currency]: currentBalance - amount,
+        total: prev.total - amount,
       };
-    }
-  };
-
-  const loadConversionRates = async () => {
-    try {
-      const rates = await getConversionRates();
-      setConversionRates(rates);
-    } catch (error) {
-      console.error('Error loading conversion rates:', error);
-    }
-  };
-
-  const convertCurrency = async (fromCurrency, toCurrency, amount) => {
-    try {
-      setIsLoading(true);
-      
-      const response = await api.post('/wallet/convert', {
-        fromCurrency,
-        toCurrency,
-        amount: parseFloat(amount),
-      });
-
-      if (response.success) {
-        // Update wallet with new balances
-        setWallet(prev => ({
-          ...prev,
-          [fromCurrency]: prev[fromCurrency] - amount,
-          [toCurrency]: prev[toCurrency] + response.data.convertedAmount,
-        }));
-
-        // Add transaction
-        const newTransaction = {
-          id: Date.now(),
-          type: 'تبدیل',
-          amount: -amount,
-          currency: fromCurrency,
-          convertedAmount: response.data.convertedAmount,
-          convertedCurrency: toCurrency,
-          fee: response.data.fee || 0,
-          status: 'موفق',
-          date: new Date().toLocaleString('fa-IR'),
-          timestamp: Date.now(),
-        };
-
-        setTransactions(prev => [newTransaction, ...prev]);
-        
-        // Update cache
-        await AsyncStorage.setItem('sodmax_wallet_cache', JSON.stringify(wallet));
-        await AsyncStorage.setItem('sodmax_transactions_cache', JSON.stringify([newTransaction, ...transactions]));
-
-        toast.success('تبدیل موفق', `${amount} ${fromCurrency} به ${response.data.convertedAmount} ${toCurrency} تبدیل شد`);
-        
-        return response.data;
-      } else {
-        throw new Error(response.message || 'خطا در تبدیل ارز');
-      }
-    } catch (error) {
-      console.error('Convert currency error:', error);
-      toast.error('خطا در تبدیل', error.message || 'خطا در انجام عملیات');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const withdrawFunds = async (currency, amount, walletAddress) => {
-    try {
-      setIsLoading(true);
-
-      if (amount < withdrawalLimits.min) {
-        throw new Error(`حداقل مبلغ برداشت ${withdrawalLimits.min.toLocaleString('fa-IR')} ${currency} است`);
-      }
-
-      if (amount > withdrawalLimits.max) {
-        throw new Error(`حداکثر مبلغ برداشت ${withdrawalLimits.max.toLocaleString('fa-IR')} ${currency} است`);
-      }
-
-      if (amount > wallet[currency]) {
-        throw new Error(`موجودی ${currency} کافی نیست`);
-      }
-
-      const response = await api.post('/wallet/withdraw', {
-        currency,
-        amount: parseFloat(amount),
-        walletAddress,
-        feePercent: withdrawalLimits.feePercent,
-      });
-
-      if (response.success) {
-        // Update wallet
-        const fee = (amount * withdrawalLimits.feePercent) / 100;
-        const netAmount = amount - fee;
-        
-        setWallet(prev => ({
-          ...prev,
-          [currency]: prev[currency] - amount,
-        }));
-
-        // Add transaction
-        const newTransaction = {
-          id: Date.now(),
-          type: 'برداشت',
-          amount: -amount,
-          currency,
-          fee,
-          netAmount,
-          walletAddress,
-          status: 'در انتظار',
-          trackingId: response.data.trackingId,
-          date: new Date().toLocaleString('fa-IR'),
-          timestamp: Date.now(),
-        };
-
-        setTransactions(prev => [newTransaction, ...prev]);
-        
-        // Update cache
-        await AsyncStorage.setItem('sodmax_wallet_cache', JSON.stringify(wallet));
-        await AsyncStorage.setItem('sodmax_transactions_cache', JSON.stringify([newTransaction, ...transactions]));
-
-        toast.success('درخواست ثبت شد', `برداشت ${netAmount.toLocaleString('fa-IR')} ${currency} ثبت شد. شماره پیگیری: ${response.data.trackingId}`);
-        
-        return response.data;
-      } else {
-        throw new Error(response.message || 'خطا در ثبت درخواست برداشت');
-      }
-    } catch (error) {
-      console.error('Withdraw funds error:', error);
-      toast.error('خطا در برداشت', error.message || 'خطا در انجام عملیات');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const depositFunds = async (currency, amount, method = 'gateway') => {
-    try {
-      setIsLoading(true);
-
-      const response = await api.post('/wallet/deposit', {
-        currency,
-        amount: parseFloat(amount),
-        method,
-      });
-
-      if (response.success) {
-        if (response.data.paymentUrl) {
-          // For gateway payments, return the payment URL
-          return response.data;
-        } else {
-          // For direct deposits, update wallet
-          setWallet(prev => ({
-            ...prev,
-            [currency]: prev[currency] + amount,
-          }));
-
-          // Add transaction
-          const newTransaction = {
-            id: Date.now(),
-            type: 'واریز',
-            amount,
-            currency,
-            method,
-            status: 'موفق',
-            date: new Date().toLocaleString('fa-IR'),
-            timestamp: Date.now(),
-          };
-
-          setTransactions(prev => [newTransaction, ...prev]);
-          
-          // Update cache
-          await AsyncStorage.setItem('sodmax_wallet_cache', JSON.stringify(wallet));
-          await AsyncStorage.setItem('sodmax_transactions_cache', JSON.stringify([newTransaction, ...transactions]));
-
-          toast.success('واریز موفق', `${amount.toLocaleString('fa-IR')} ${currency} به حساب شما واریز شد`);
-          
-          return response.data;
-        }
-      } else {
-        throw new Error(response.message || 'خطا در واریز وجه');
-      }
-    } catch (error) {
-      console.error('Deposit funds error:', error);
-      toast.error('خطا در واریز', error.message || 'خطا در انجام عملیات');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getTransactionHistory = async (filters = {}) => {
-    try {
-      const response = await api.get('/wallet/transactions', { params: filters });
-      
-      if (response.success) {
-        setTransactions(response.data.transactions);
-        await AsyncStorage.setItem('sodmax_transactions_cache', JSON.stringify(response.data.transactions));
-        return response.data;
-      }
-    } catch (error) {
-      console.error('Error getting transaction history:', error);
-      throw error;
-    }
-  };
-
-  const getTotalBalance = (currency = 'Toman') => {
-    // Convert all balances to target currency
-    let total = 0;
-    
-    Object.entries(wallet).forEach(([curr, amount]) => {
-      if (curr === currency) {
-        total += amount;
-      } else {
-        const rateKey = `${curr}_TO_${currency}`;
-        const rate = conversionRates[rateKey] || 0;
-        total += amount * rate;
-      }
     });
-    
-    return total;
-  };
 
-  const formatBalance = (currency, amount) => {
-    const formatter = new Intl.NumberFormat('fa-IR');
-    return `${formatter.format(amount)} ${currency}`;
-  };
+    // ثبت تراکنش
+    const transaction = {
+      id: Date.now(),
+      type: 'برداشت',
+      amount: -amount,
+      currency,
+      status: 'موفق',
+      timestamp: new Date().toISOString(),
+      description: `برداشت ${currency.toUpperCase()}`,
+    };
+
+    setTransactions(prev => [transaction, ...prev]);
+    return true;
+  }, [showError]);
+
+  // درخواست برداشت
+  const requestWithdrawal = useCallback(async (currency, amount, address) => {
+    if (!user) {
+      showError('لطفاً ابتدا وارد شوید');
+      return false;
+    }
+
+    // اعتبارسنجی موجودی
+    const currentBalance = balances[currency] || 0;
+    if (currentBalance < amount) {
+      showError('موجودی کافی نیست');
+      return false;
+    }
+
+    // اعتبارسنجی حداقل برداشت
+    const minWithdrawal = {
+      sod: 1000,
+      toman: 10000,
+      usdt: 10,
+    };
+
+    if (amount < minWithdrawal[currency]) {
+      showError(`حداقل مبلغ برداشت ${minWithdrawal[currency]} ${currency.toUpperCase()} است`);
+      return false;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const response = await api.wallet.withdraw(user.id, amount, currency, address);
+      
+      if (response.success) {
+        // کسر از موجودی
+        deductBalance(currency, amount);
+
+        // به‌روزرسانی آمار
+        setWalletStats(prev => ({
+          ...prev,
+          pendingWithdrawals: prev.pendingWithdrawals + amount,
+          totalWithdrawn: prev.totalWithdrawn + amount,
+        }));
+
+        showSuccess(
+          `درخواست برداشت ${amount.toLocaleString('fa-IR')} ${currency.toUpperCase()} ثبت شد. ` +
+          `طی ۲۴ ساعت کاری واریز خواهد شد.`
+        );
+
+        return {
+          success: true,
+          withdrawalId: response.data.withdrawalId,
+        };
+      } else {
+        showError(response.message || 'خطا در ثبت درخواست برداشت');
+        return { success: false };
+      }
+    } catch (error) {
+      console.error('Error requesting withdrawal:', error);
+      showError('خطا در ثبت درخواست برداشت');
+      return { success: false };
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user, balances, deductBalance, showSuccess, showError]);
+
+  // خرید SOD
+  const buySod = useCallback(async (amount, paymentMethod = 'toman') => {
+    if (!user) {
+      showError('لطفاً ابتدا وارد شوید');
+      return false;
+    }
+
+    // اعتبارسنجی موجودی تومان
+    if (paymentMethod === 'toman' && balances.toman < amount) {
+      showError('موجودی تومان کافی نیست');
+      return false;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const response = await api.wallet.buySod(user.id, amount, paymentMethod);
+      
+      if (response.success) {
+        const { sodReceived, amountPaid } = response.data;
+
+        // کسر از تومان و اضافه به SOD
+        if (paymentMethod === 'toman') {
+          deductBalance('toman', amountPaid);
+        }
+        
+        addBalance('sod', sodReceived);
+
+        showSuccess(
+          `${sodReceived.toLocaleString('fa-IR')} SOD خریداری شد! ` +
+          `مبلغ پرداختی: ${amountPaid.toLocaleString('fa-IR')} ${paymentMethod === 'toman' ? 'تومان' : 'USDT'}`
+        );
+
+        return { success: true, sodReceived };
+      } else {
+        showError(response.message || 'خطا در خرید SOD');
+        return { success: false };
+      }
+    } catch (error) {
+      console.error('Error buying SOD:', error);
+      showError('خطا در خرید SOD');
+      return { success: false };
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user, balances.toman, deductBalance, addBalance, showSuccess, showError]);
+
+  // تبدیل ارز
+  const convertCurrency = useCallback(async (fromCurrency, toCurrency, amount) => {
+    if (!user) {
+      showError('لطفاً ابتدا وارد شوید');
+      return false;
+    }
+
+    // اعتبارسنجی موجودی
+    const currentBalance = balances[fromCurrency] || 0;
+    if (currentBalance < amount) {
+      showError('موجودی کافی نیست');
+      return false;
+    }
+
+    // اعتبارسنجی حداقل تبدیل
+    const minConversion = {
+      sod: 100,
+      toman: 1000,
+      usdt: 1,
+    };
+
+    if (amount < minConversion[fromCurrency]) {
+      showError(`حداقل مبلغ تبدیل ${minConversion[fromCurrency]} ${fromCurrency.toUpperCase()} است`);
+      return false;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const response = await api.wallet.convertCurrency(user.id, fromCurrency, toCurrency, amount);
+      
+      if (response.success) {
+        const { convertedAmount, rate } = response.data;
+
+        // کسر از ارز مبدا و اضافه به ارز مقصد
+        deductBalance(fromCurrency, amount);
+        addBalance(toCurrency, convertedAmount);
+
+        showSuccess(
+          `${amount.toLocaleString('fa-IR')} ${fromCurrency.toUpperCase()} ` +
+          `به ${convertedAmount.toLocaleString('fa-IR')} ${toCurrency.toUpperCase()} ` +
+          `تبدیل شد. نرخ: ${rate}`
+        );
+
+        return { success: true, convertedAmount, rate };
+      } else {
+        showError(response.message || 'خطا در تبدیل ارز');
+        return { success: false };
+      }
+    } catch (error) {
+      console.error('Error converting currency:', error);
+      showError('خطا در تبدیل ارز');
+      return { success: false };
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user, balances, deductBalance, addBalance, showSuccess, showError]);
+
+  // اضافه کردن آدرس کیف پول
+  const addWalletAddress = useCallback(async (currency, address, network) => {
+    if (!user) {
+      showError('لطفاً ابتدا وارد شوید');
+      return false;
+    }
+
+    // اعتبارسنجی آدرس
+    if (!address.trim()) {
+      showError('لطفاً آدرس کیف پول را وارد کنید');
+      return false;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const response = await api.wallet.addWalletAddress(user.id, currency, address, network);
+      
+      if (response.success) {
+        setAddresses(prev => ({
+          ...prev,
+          [currency]: address,
+        }));
+
+        showSuccess('آدرس کیف پول با موفقیت اضافه شد');
+        return { success: true };
+      } else {
+        showError(response.message || 'خطا در اضافه کردن آدرس کیف پول');
+        return { success: false };
+      }
+    } catch (error) {
+      console.error('Error adding wallet address:', error);
+      showError('خطا در اضافه کردن آدرس کیف پول');
+      return { success: false };
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user, showSuccess, showError]);
+
+  // بررسی وضعیت برداشت
+  const checkWithdrawalStatus = useCallback(async (withdrawalId) => {
+    if (!user || !withdrawalId) return null;
+
+    try {
+      const response = await api.wallet.getWithdrawalStatus(user.id, withdrawalId);
+      return response;
+    } catch (error) {
+      console.error('Error checking withdrawal status:', error);
+      return null;
+    }
+  }, [user]);
+
+  // دریافت کل موجودی به تومان
+  const getTotalBalanceInToman = useCallback(() => {
+    const { sod, toman, usdt } = balances;
+    const { conversionRate } = walletStats;
+
+    const sodInToman = sod * conversionRate;
+    const usdtInToman = usdt * conversionRate * 50000; // فرض: هر USDT = 50,000 تومان
+    
+    return sodInToman + toman + usdtInToman;
+  }, [balances, walletStats.conversionRate]);
+
+  // فرمت موجودی
+  const formatBalance = useCallback((amount, currency) => {
+    const formatted = amount.toLocaleString('fa-IR');
+    
+    switch (currency) {
+      case 'sod':
+        return `${formatted} SOD`;
+      case 'toman':
+        return `${formatted} تومان`;
+      case 'usdt':
+        return `${formatted} USDT`;
+      default:
+        return formatted;
+    }
+  }, []);
+
+  // فیلتر تراکنش‌ها
+  const filterTransactions = useCallback((filters = {}) => {
+    let filtered = [...transactions];
+
+    if (filters.type) {
+      filtered = filtered.filter(t => t.type === filters.type);
+    }
+
+    if (filters.currency) {
+      filtered = filtered.filter(t => t.currency === filters.currency);
+    }
+
+    if (filters.status) {
+      filtered = filtered.filter(t => t.status === filters.status);
+    }
+
+    if (filters.startDate) {
+      filtered = filtered.filter(t => new Date(t.timestamp) >= new Date(filters.startDate));
+    }
+
+    if (filters.endDate) {
+      filtered = filtered.filter(t => new Date(t.timestamp) <= new Date(filters.endDate));
+    }
+
+    return filtered;
+  }, [transactions]);
+
+  // بارگذاری اولیه
+  useEffect(() => {
+    if (user) {
+      loadWalletData();
+    }
+  }, [user, loadWalletData]);
+
+  // رفرش خودکار هر 30 ثانیه
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      loadWalletData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user, loadWalletData]);
 
   const value = {
-    wallet,
+    balances,
     transactions,
-    conversionRates,
+    walletStats,
+    addresses,
     isLoading,
-    withdrawalLimits,
-    refreshWallet,
+    isProcessing,
+    loadWalletData,
+    addBalance,
+    deductBalance,
+    requestWithdrawal,
+    buySod,
     convertCurrency,
-    withdrawFunds,
-    depositFunds,
-    getTransactionHistory,
-    getTotalBalance,
+    addWalletAddress,
+    checkWithdrawalStatus,
+    getTotalBalanceInToman,
     formatBalance,
-    getConversionRates,
+    filterTransactions,
   };
 
   return (
@@ -354,6 +445,35 @@ export const WalletProvider = ({ children }) => {
       {children}
     </WalletContext.Provider>
   );
+};
+
+// هوک برای دسترسی آسان به موجودی
+export const useBalance = (currency) => {
+  const { balances, formatBalance } = useWallet();
+  const balance = balances[currency] || 0;
+  
+  return {
+    raw: balance,
+    formatted: formatBalance(balance, currency),
+    isZero: balance === 0,
+  };
+};
+
+// هوک برای دسترسی آسان به کل موجودی
+export const useTotalBalance = () => {
+  const { getTotalBalanceInToman } = useWallet();
+  const total = getTotalBalanceInToman();
+  
+  return {
+    raw: total,
+    formatted: total.toLocaleString('fa-IR') + ' تومان',
+  };
+};
+
+// هوک برای دسترسی آسان به تراکنش‌ها
+export const useFilteredTransactions = (filters = {}) => {
+  const { filterTransactions } = useWallet();
+  return filterTransactions(filters);
 };
 
 export default WalletContext;
