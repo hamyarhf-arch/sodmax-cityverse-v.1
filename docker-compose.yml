@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # Frontend (React/Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://backend:5000/api
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Backend (Node.js/Express)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - JWT_SECRET=sodmax_super_secret_jwt_key_production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - FRONTEND_URL=http://localhost:5173
+    depends_on:
+      - supabase
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm start
+
+  # Supabase Local (پایگاه داده)
+  supabase:
+    image: supabase/postgres:latest
+    environment:
+      POSTGRES_PASSWORD: sodmax_password
+      POSTGRES_DB: sodmax_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - supabase_data:/var/lib/postgresql/data
+
+  # Adminer (مدیریت دیتابیس)
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      - supabase
+
+volumes:
+  supabase_data:
