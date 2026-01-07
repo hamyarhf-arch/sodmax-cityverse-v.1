@@ -77,3 +77,37 @@
     "preset": "react-native"
   }
 }
+// در mobile/package.json این تغییرات رو اعمال کن:
+
+{
+  "dependencies": {
+    // اینها رو آپدیت کن:
+    "lottie-react-native": "^5.9.0", // به جای 5.1.6
+    "react-native-screens": "~3.29.0", // به جای 3.25.0
+    "react-native-webview": "~13.6.0", // به جای 13.5.0
+    "react-native-bootsplash": "^6.4.0", // به جای 6.1.0
+    "react-native-reanimated": "^3.7.0", // به جای 3.5.4
+    "react-native-gesture-handler": "~2.14.0", // به جای 2.12.1
+    "react-native-get-random-values": "^1.11.0", // به جای 1.9.0
+    "react-native-safe-area-context": "^4.8.2", // به جای 4.7.2
+    "@react-native-community/netinfo": "^11.3.1", // به جای 9.4.1
+    "@react-native-async-storage/async-storage": "^1.19.3", // همین خوبه
+    
+    // اینها رو اضافه کن:
+    "immer": "^10.0.3", // برای zustand
+    "@types/react": "^18.2.0", // برای zustand
+    "lottie-ios": "^4.3.2", // برای lottie-react-native
+    "expo-status-bar": "~1.10.0",
+    "expo": "~51.0.0", // اگر Expo استفاده می‌کنی
+    "@expo/vector-icons": "^13.0.0",
+    "react-native-vector-icons": "^10.1.0",
+    "expo-image-picker": "~15.0.0",
+    "react-native-keychain": "^8.1.0",
+    
+    // اینها رو حذف یا replace کن:
+    // "react-native-share@^9.6.0" → "react-native-share": "^9.0.0"
+    // "react-native-vibrate@^1.0.1" → "expo-haptics": "~12.0.0"
+    // "@react-native-community/blur@^4.3.0" → "@react-native-community/blur": "^4.0.0"
+    // "react-native-haptic-feedback@^2.3.4" → "expo-haptics": "~12.0.0"
+  }
+}
