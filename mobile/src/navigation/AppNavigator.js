@@ -1,165 +1,180 @@
+[file name]: mobile/src/navigation/AppNavigator.js
+[file content begin]
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useTheme } from '@context/ThemeContext';
+import { useAuth } from '@context/AuthContext';
+import Icon from 'react-native-vector-icons/Feather';
 
-// Screens
-import LoginScreen from '../screens/auth/LoginScreen';
-import RegisterScreen from '../screens/auth/RegisterScreen';
-import DashboardScreen from '../screens/dashboard/DashboardScreen';
-import MiningScreen from '../screens/mining/MiningScreen';
-import WalletScreen from '../screens/wallet/WalletScreen';
-import MissionsScreen from '../screens/missions/MissionsScreen';
-import InviteScreen from '../screens/invite/InviteScreen';
-import RewardsScreen from '../screens/rewards/RewardsScreen';
-import ProfileScreen from '../screens/profile/ProfileScreen';
-import SettingsScreen from '../screens/settings/SettingsScreen';
-import SupportScreen from '../screens/support/SupportScreen';
-import BusinessDashboardScreen from '../screens/business/BusinessDashboardScreen';
+// Auth Screens
+import LoginScreen from '@screens/auth/LoginScreen';
+import RegisterScreen from '@screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '@screens/auth/ForgotPasswordScreen';
 
-// Context
-import { useAuth } from '../context/AuthContext';
+// Main Screens
+import DashboardScreen from '@screens/dashboard/DashboardScreen';
+import MiningScreen from '@screens/mining/MiningScreen';
+import WalletScreen from '@screens/wallet/WalletScreen';
+import MissionsScreen from '@screens/missions/MissionsScreen';
+import InviteScreen from '@screens/invite/InviteScreen';
+import RewardsScreen from '@screens/rewards/RewardsScreen';
+import ProfileScreen from '@screens/profile/ProfileScreen';
+import SettingsScreen from '@screens/settings/SettingsScreen';
+import SupportScreen from '@screens/support/SupportScreen';
 
-// Constants
-import Colors from '../constants/Colors';
-import Layout from '../constants/Layout';
-
-const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
 
-const AuthStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerShown: false,
-      cardStyle: { backgroundColor: Colors.bgPrimary },
-    }}
-  >
-    <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="Register" component={RegisterScreen} />
-  </Stack.Navigator>
-);
+// Bottom Tab Navigator for main app
+const MainTabNavigator = () => {
+  const { theme } = useTheme();
 
-const MainTabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarStyle: {
-        backgroundColor: Colors.bgSurface,
-        borderTopColor: Colors.borderLight,
-        height: Layout.bottomTabHeight,
-        paddingBottom: Layout.isIOS ? 20 : 8,
-        paddingTop: 8,
-      },
-      tabBarActiveTintColor: Colors.primary,
-      tabBarInactiveTintColor: Colors.textTertiary,
-      tabBarLabelStyle: {
-        fontSize: 10,
-        fontWeight: '600',
-        marginTop: 4,
-      },
-      tabBarIcon: ({ focused, color, size }) => {
-        let iconName;
-        let IconComponent = Ionicons;
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          
+          switch (route.name) {
+            case 'Dashboard':
+              iconName = 'home';
+              break;
+            case 'Mining':
+              iconName = 'activity';
+              break;
+            case 'Wallet':
+              iconName = 'credit-card';
+              break;
+            case 'Invite':
+              iconName = 'users';
+              break;
+            case 'Rewards':
+              iconName = 'gift';
+              break;
+            case 'Profile':
+              iconName = 'user';
+              break;
+            default:
+              iconName = 'circle';
+          }
 
-        switch (route.name) {
-          case 'Dashboard':
-            iconName = focused ? 'home' : 'home-outline';
-            break;
-          case 'Mining':
-            iconName = focused ? 'hardware-chip' : 'hardware-chip-outline';
-            break;
-          case 'Wallet':
-            IconComponent = FontAwesome5;
-            iconName = 'wallet';
-            size = focused ? 22 : 20;
-            break;
-          case 'Invite':
-            iconName = focused ? 'person-add' : 'person-add-outline';
-            break;
-          case 'Rewards':
-            iconName = focused ? 'gift' : 'gift-outline';
-            break;
-          case 'Profile':
-            iconName = focused ? 'person-circle' : 'person-circle-outline';
-            break;
-          default:
-            iconName = 'help-circle';
-        }
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.secondary,
+        tabBarStyle: {
+          backgroundColor: theme.colors.background,
+          borderTopColor: 'rgba(255,255,255,0.1)',
+          height: 60,
+          paddingBottom: 10,
+          paddingTop: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.background,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+        headerTintColor: theme.colors.text,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      })}
+    >
+      <Tab.Screen 
+        name="Dashboard" 
+        component={DashboardScreen} 
+        options={{ title: 'داشبورد' }}
+      />
+      <Tab.Screen 
+        name="Mining" 
+        component={MiningScreen} 
+        options={{ title: 'استخراج' }}
+      />
+      <Tab.Screen 
+        name="Wallet" 
+        component={WalletScreen} 
+        options={{ title: 'کیف پول' }}
+      />
+      <Tab.Screen 
+        name="Invite" 
+        component={InviteScreen} 
+        options={{ title: 'دعوت دوستان' }}
+      />
+      <Tab.Screen 
+        name="Rewards" 
+        component={RewardsScreen} 
+        options={{ title: 'پاداش‌ها' }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'پروفایل' }}
+      />
+    </Tab.Navigator>
+  );
+};
 
-        return <IconComponent name={iconName} size={size} color={color} />;
-      },
-    })}
-  >
-    <Tab.Screen 
-      name="Dashboard" 
-      component={DashboardScreen}
-      options={{
-        tabBarLabel: 'داشبورد',
-      }}
-    />
-    <Tab.Screen 
-      name="Mining" 
-      component={MiningScreen}
-      options={{
-        tabBarLabel: 'استخراج',
-        tabBarBadge: 'جدید',
-      }}
-    />
-    <Tab.Screen 
-      name="Wallet" 
-      component={WalletScreen}
-      options={{
-        tabBarLabel: 'کیف پول',
-      }}
-    />
-    <Tab.Screen 
-      name="Invite" 
-      component={InviteScreen}
-      options={{
-        tabBarLabel: 'دعوت',
-      }}
-    />
-    <Tab.Screen 
-      name="Rewards" 
-      component={RewardsScreen}
-      options={{
-        tabBarLabel: 'پاداش‌ها',
-      }}
-    />
-    <Tab.Screen 
-      name="Profile" 
-      component={ProfileScreen}
-      options={{
-        tabBarLabel: 'پروفایل',
-      }}
-    />
-  </Tab.Navigator>
-);
-
-const MainStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerShown: false,
-      cardStyle: { backgroundColor: Colors.bgPrimary },
-    }}
-  >
-    <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-    <Stack.Screen name="Settings" component={SettingsScreen} />
-    <Stack.Screen name="Support" component={SupportScreen} />
-    <Stack.Screen name="BusinessDashboard" component={BusinessDashboardScreen} />
-  </Stack.Navigator>
-);
-
+// Main App Navigator
 const AppNavigator = () => {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
 
-  // Show loading screen
-  if (isLoading) {
-    return null; // Or a loading component
-  }
-
-  return user ? <MainStack /> : <AuthStack />;
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {user ? (
+        // User is logged in - show main app
+        <>
+          <Stack.Screen name="Main" component={MainTabNavigator} />
+          <Stack.Screen 
+            name="Settings" 
+            component={SettingsScreen} 
+            options={{ 
+              headerShown: true, 
+              title: 'تنظیمات',
+              headerBackTitle: 'بازگشت'
+            }} 
+          />
+          <Stack.Screen 
+            name="Support" 
+            component={SupportScreen} 
+            options={{ 
+              headerShown: true, 
+              title: 'پشتیبانی',
+              headerBackTitle: 'بازگشت'
+            }} 
+          />
+        </>
+      ) : (
+        // User is not logged in - show auth screens
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen 
+            name="Register" 
+            component={RegisterScreen} 
+            options={{ 
+              headerShown: true, 
+              title: 'ثبت‌نام',
+              headerBackTitle: 'بازگشت'
+            }} 
+          />
+          <Stack.Screen 
+            name="ForgotPassword" 
+            component={ForgotPasswordScreen} 
+            options={{ 
+              headerShown: true, 
+              title: 'بازیابی رمز',
+              headerBackTitle: 'بازگشت'
+            }} 
+          />
+        </>
+      )}
+    </Stack.Navigator>
+  );
 };
 
 export default AppNavigator;
+[file content end]
