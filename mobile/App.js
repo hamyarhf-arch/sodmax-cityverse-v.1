@@ -1,54 +1,36 @@
-[file name]: mobile/App.js
-[file content begin]
-import React, { useEffect, useState } from 'react';
-import { StatusBar } from 'react-native';
+// mobile/App.js
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { ThemeProvider } from '@context/ThemeContext';
-import { ToastProvider } from '@context/ToastContext';
-import { AuthProvider } from '@context/AuthContext';
-import { AppProvider } from '@context/AppContext';
-import { MiningProvider } from '@context/MiningContext';
-import { WalletProvider } from '@context/WalletContext';
-import AppNavigator from '@navigation/AppNavigator';
-import SplashScreen from '@screens/splash/SplashScreen';
-
-// Import i18n for RTL support
-import './src/i18n';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'react-native';
+import AppNavigator from './src/navigation/AppNavigator';
+import { AuthProvider } from './src/context/AuthContext';
+import { AppProvider } from './src/context/AppContext';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { MiningProvider } from './src/context/MiningContext';
+import { WalletProvider } from './src/context/WalletContext';
+import { ToastProvider } from './src/context/ToastContext';
+import './src/i18n'; // ترجمه فارسی
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate loading time
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
-  }, []);
-
-  if (isLoading) {
-    return <SplashScreen />;
-  }
-
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <AppProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AppProvider>
+          <ThemeProvider>
             <MiningProvider>
               <WalletProvider>
-                <NavigationContainer>
-                  <StatusBar 
-                    barStyle="light-content" 
-                    backgroundColor="#0a0f1c" 
-                  />
-                  <AppNavigator />
-                </NavigationContainer>
+                <ToastProvider>
+                  <StatusBar barStyle="light-content" backgroundColor="#0a0f1c" />
+                  <NavigationContainer>
+                    <AppNavigator />
+                  </NavigationContainer>
+                </ToastProvider>
               </WalletProvider>
             </MiningProvider>
-          </AppProvider>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+          </ThemeProvider>
+        </AppProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
-[file content end]
