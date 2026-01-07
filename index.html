@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SODmAX CityVerse</title>
+    <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
@@ -12,56 +13,103 @@
             text-align: center;
             padding: 50px;
             margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .container {
             max-width: 600px;
-            margin: 0 auto;
         }
         h1 {
             color: #0066FF;
             font-size: 48px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #9ca3af;
+            font-size: 18px;
+            margin-bottom: 30px;
         }
         .btn {
             display: inline-block;
-            background: #0066FF;
+            background: linear-gradient(135deg, #0066FF 0%, #3395FF 100%);
             color: white;
-            padding: 15px 30px;
-            border-radius: 10px;
+            padding: 18px 40px;
+            border-radius: 12px;
             text-decoration: none;
             font-weight: bold;
             margin: 20px;
-            font-size: 18px;
+            font-size: 20px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(0, 102, 255, 0.3);
         }
         .btn:hover {
-            background: #0052CC;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 102, 255, 0.4);
         }
-        .warning {
-            background: rgba(255, 107, 53, 0.2);
-            border: 1px solid #FF6B35;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 30px 0;
+        .loading {
+            color: #00D4AA;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+        .links {
+            margin-top: 40px;
+        }
+        .links a {
+            color: #9ca3af;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 14px;
+        }
+        .links a:hover {
+            color: #0066FF;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>⚡ SODmAX CityVerse</h1>
-        <p>پلتفرم درآمدزایی و بازی‌سازی - نسخه موبایل</p>
+        <p class="subtitle">پلتفرم پیشرفته درآمدزایی و بازی‌سازی</p>
         
-        <div class="warning">
-            <strong>⚠️ توجه:</strong> پروژه در حال توسعه است
-        </div>
-        
-        <a href="./mobile-web/index.html" class="btn">
+        <a href="mobile-web/" class="btn" id="mainBtn">
             🚀 ورود به نسخه موبایل
         </a>
         
-        <p style="margin-top: 40px; color: #9ca3af;">
-            توسعه‌دهنده: hamyarhf-arch<br>
-            آخرین بروزرسانی: امروز
-        </p>
+        <div class="loading" id="loadingText">
+            در حال انتقال به نسخه موبایل...
+        </div>
+        
+        <div class="links">
+            <a href="https://github.com/hamyarhf-arch/sodmax-cityverse-v.1" target="_blank">مخزن GitHub</a>
+            |
+            <a href="mobile-web/" target="_blank">بازکردن در تب جدید</a>
+        </div>
     </div>
+    
+    <script>
+        // نمایش دکمه
+        document.getElementById('loadingText').style.display = 'none';
+        
+        // اگر کاربر کلیک نکرد، بعد از 8 ثانیه به صورت خودکار برو
+        setTimeout(function() {
+            // فقط اگر هنوز در صفحه اصلی هستیم
+            if (window.location.pathname === '/' || 
+                window.location.pathname === '/sodmax-cityverse-v.1/' ||
+                window.location.pathname === '/sodmax-cityverse-v.1/index.html') {
+                
+                document.getElementById('mainBtn').style.display = 'none';
+                document.getElementById('loadingText').style.display = 'block';
+                
+                setTimeout(function() {
+                    window.location.href = 'mobile-web/';
+                }, 2000);
+            }
+        }, 8000);
+        
+        // پیام خوش‌آمد
+        console.log('🎉 SODmAX CityVerse Loaded!');
+        console.log('📱 Mobile version: ' + window.location.origin + '/mobile-web/');
+    </script>
 </body>
 </html>
