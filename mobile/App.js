@@ -1,67 +1,54 @@
-import React, { useEffect } from 'react';
-import { StatusBar, LogBox } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+[file name]: mobile/App.js
+[file content begin]
+import React, { useEffect, useState } from 'react';
+import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import RNBootSplash from 'react-native-bootsplash';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ThemeProvider } from '@context/ThemeContext';
+import { ToastProvider } from '@context/ToastContext';
+import { AuthProvider } from '@context/AuthContext';
+import { AppProvider } from '@context/AppContext';
+import { MiningProvider } from '@context/MiningContext';
+import { WalletProvider } from '@context/WalletContext';
+import AppNavigator from '@navigation/AppNavigator';
+import SplashScreen from '@screens/splash/SplashScreen';
 
-// Contexts
-import { AuthProvider } from './src/context/AuthContext';
-import { ToastProvider } from './src/context/ToastContext';
-import { MiningProvider } from './src/context/MiningContext';
-import { WalletProvider } from './src/context/WalletContext';
+// Import i18n for RTL support
+import './src/i18n';
 
-// Navigation
-import AppNavigator from './src/navigation/AppNavigator';
+export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
 
-// Services
-import { initializeApp } from './src/services/init';
-
-// Ignore specific warnings
-LogBox.ignoreLogs([
-  'Non-serializable values were found in the navigation state',
-  'Require cycle:',
-]);
-
-const App = () => {
   useEffect(() => {
-    const init = async () => {
-      try {
-        // Initialize app services
-        await initializeApp();
-        
-        // Hide splash screen
-        await RNBootSplash.hide({ fade: true });
-      } catch (error) {
-        console.error('App initialization error:', error);
-      }
-    };
-
-    init();
+    // Simulate loading time
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
   }, []);
 
+  if (isLoading) {
+    return <SplashScreen />;
+  }
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+    <ThemeProvider>
+      <ToastProvider>
         <AuthProvider>
-          <ToastProvider>
+          <AppProvider>
             <MiningProvider>
               <WalletProvider>
                 <NavigationContainer>
-                  <StatusBar
-                    barStyle="light-content"
-                    backgroundColor="#0a0f1c"
-                    translucent={true}
+                  <StatusBar 
+                    barStyle="light-content" 
+                    backgroundColor="#0a0f1c" 
                   />
                   <AppNavigator />
                 </NavigationContainer>
               </WalletProvider>
             </MiningProvider>
-          </ToastProvider>
+          </AppProvider>
         </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+      </ToastProvider>
+    </ThemeProvider>
   );
-};
-
-export default App;
+}
+[file content end]
