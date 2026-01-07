@@ -1,229 +1,212 @@
-// frontend/src/App.jsx
-import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import Layout from './components/Layout/Layout';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
+import { Layout, Menu, Card, Button, List, Tag, Spin, message } from 'antd';
+import {
+  DashboardOutlined,
+  MissionOutlined,
+  LoginOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons';
+import './App.css';
 
-// Lazy load pages for better performance
-const Home = lazy(() => import('./pages/Home'));
-const Login = lazy(() => import('./components/Auth/Login'));
-const Register = lazy(() => import('./components/Auth/Register'));
-const BusinessRegister = lazy(() => import('./components/Auth/BusinessRegister'));
-const UserPanel = lazy(() => import('./pages/UserPanel'));
-const BusinessPanel = lazy(() => import('./pages/BusinessPanel'));
-const AdminPanel = lazy(() => import('./pages/AdminPanel'));
-
-// Dashboard components
-const UserDashboard = lazy(() => import('./components/Dashboard/UserDashboard'));
-const BusinessDashboard = lazy(() => import('./components/Dashboard/BusinessDashboard'));
-const MiningCenter = lazy(() => import('./components/Dashboard/MiningCenter'));
-
-// Mission components
-const MissionList = lazy(() => import('./components/Missions/MissionList'));
-const MissionDetails = lazy(() => import('./components/Missions/MissionDetails'));
-
-// Campaign components
-const CampaignList = lazy(() => import('./components/Campaigns/CampaignList'));
-const CampaignForm = lazy(() => import('./components/Campaigns/CampaignForm'));
-
-// Wallet components
-const WalletBalance = lazy(() => import('./components/Wallet/WalletBalance'));
-const TransactionHistory = lazy(() => import('./components/Wallet/TransactionHistory'));
-
-// Loading component
-const LoadingSpinner = () => (
-  <div style={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  }}>
-    <div style={{
-      width: '50px',
-      height: '50px',
-      border: '5px solid rgba(255,255,255,0.3)',
-      borderTop: '5px solid white',
-      borderRadius: '50%',
-      animation: 'spin 1s linear infinite',
-    }} />
-    <style>{`
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `}</style>
-  </div>
+// ==================== راه‌اندازی کلاینت Supabase ====================
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Protected Route component
-const ProtectedRoute = ({ children, roles = [] }) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-  
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  if (roles.length > 0 && !roles.includes(user.role)) {
-    return <Navigate to="/" replace />;
-  }
-  
-  return children;
-};
-
-// Public Only Route component
-const PublicOnlyRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-  
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  
-  return children;
-};
+const { Header, Content, Sider } = Layout;
 
 function App() {
-  const { user } = useAuth();
+  const [user, setUser] = useState(null);
+  const [missions, setMissions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // ==================== اثرات اولیه ====================
+  // بررسی وضعیت لاگین کاربر
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    };
+    checkUser();
+    // گوش دادن به تغییرات وضعیت احراز هویت
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // دریافت ماموریت‌ها از API بک‌اند
+  useEffect(() => {
+    fetchMissions();
+  }, []);
+
+  // ==================== توابع اصلی ====================
+  const fetchMissions = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/missions`);
+      setMissions(response.data.missions || []);
+    } catch (error) {
+      console.error('خطا در دریافت ماموریت‌ها:', error);
+      message.error('دریافت ماموریت‌ها با مشکل مواجه شد.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    // ورود با Magic Link (ایمیل) - ساده و امن برای MVP
+    const email = prompt('لطفاً ایمیل خود را برای ورود وارد کنید:');
+    if (!email) return;
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true }
+    });
+    if (error) {
+      message.error(`خطای ورود: ${error.message}`);
+    } else {
+      message.success('لینک ورود به ایمیل شما ارسال شد! لطفاً ایمیل خود را بررسی کنید.');
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    message.success('با موفقیت خارج شدید.');
+  };
+
+  const handleStartMission = async (missionId) => {
+    if (!user) {
+      message.warning('برای شروع ماموریت ابتدا وارد شوید.');
+      return;
+    }
+    try {
+      // گرفتن توکن دسترسی کاربر
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const response = await axios.post(
+        `${API_BASE_URL}/missions/${missionId}/start`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      message.success(response.data.message || 'ماموریت شروع شد!');
+      fetchMissions(); // بروزرسانی لیست
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || 'خطا در شروع ماموریت';
+      message.error(errorMsg);
+    }
+  };
+
+  // ==================== کامپوننت صفحات ====================
+  const DashboardPage = () => (
+    <div>
+      <h1>داشبورد CityVerse 🎮</h1>
+      <p>به پلتفرم بازی‌محور اقتصادی خوش آمدید. ماموریت‌ها را انجام دهید و درآمد کسب کنید!</p>
+      <div style={{ marginTop: '20px' }}>
+        <Card title="وضعیت شما" bordered={false}>
+          <p><strong>کاربر:</strong> {user ? user.email : 'میهمان'}</p>
+          <p><strong>تعداد ماموریت‌های موجود:</strong> {missions.length}</p>
+          <Button type="primary" onClick={fetchMissions}>بروزرسانی لیست</Button>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const MissionsPage = () => (
+    <div>
+      <h1>ماموریت‌های فعال 🎯</h1>
+      <p>ماموریتی را انتخاب کنید، انجام دهید و پاداش دریافت کنید.</p>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>
+      ) : (
+        <List
+          itemLayout="vertical"
+          dataSource={missions}
+          renderItem={(mission) => (
+            <List.Item
+              key={mission.id}
+              actions={[
+                <Tag color="blue">{mission.action_type}</Tag>,
+                <Tag color="green">{mission.reward.toLocaleString()} تومان</Tag>,
+                <Button type="primary" onClick={() => handleStartMission(mission.id)}>
+                  شروع ماموریت
+                </Button>
+              ]}
+            >
+              <List.Item.Meta
+                title={mission.title}
+                description={`کمپین: ${mission.campaign?.title} | کسب‌وکار: ${mission.campaign?.business?.name}`}
+              />
+              {mission.description}
+              <br />
+              <small>📋 {mission.instructions}</small>
+              {mission.action_url && (
+                <div style={{ marginTop: '8px' }}>
+                  <a href={mission.action_url} target="_blank" rel="noopener noreferrer">
+                    🔗 لینک مرتبط با ماموریت
+                  </a>
+                </div>
+              )}
+            </List.Item>
+          )}
+        />
+      )}
+    </div>
+  );
+
+  // ==================== رندر اصلی ====================
   return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          
-          {/* Auth routes - only for non-authenticated users */}
-          <Route path="/login" element={
-            <PublicOnlyRoute>
-              <Login />
-            </PublicOnlyRoute>
-          } />
-          
-          <Route path="/register" element={
-            <PublicOnlyRoute>
-              <Register />
-            </PublicOnlyRoute>
-          } />
-          
-          <Route path="/register-business" element={
-            <PublicOnlyRoute>
-              <BusinessRegister />
-            </PublicOnlyRoute>
-          } />
-          
-          {/* Protected routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              {user?.role === 'business' ? <BusinessDashboard /> : <UserDashboard />}
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/user-panel" element={
-            <ProtectedRoute>
-              <UserPanel />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/business-panel" element={
-            <ProtectedRoute roles={['business', 'admin']}>
-              <BusinessPanel />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/admin-panel" element={
-            <ProtectedRoute roles={['admin']}>
-              <AdminPanel />
-            </ProtectedRoute>
-          } />
-          
-          {/* Dashboard routes */}
-          <Route path="/mining" element={
-            <ProtectedRoute>
-              <MiningCenter />
-            </ProtectedRoute>
-          } />
-          
-          {/* Mission routes */}
-          <Route path="/missions" element={
-            <ProtectedRoute>
-              <MissionList />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/missions/:id" element={
-            <ProtectedRoute>
-              <MissionDetails />
-            </ProtectedRoute>
-          } />
-          
-          {/* Campaign routes */}
-          <Route path="/campaigns" element={
-            <ProtectedRoute roles={['business', 'admin']}>
-              <CampaignList />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/campaigns/create" element={
-            <ProtectedRoute roles={['business', 'admin']}>
-              <CampaignForm />
-            </ProtectedRoute>
-          } />
-          
-          {/* Wallet routes */}
-          <Route path="/wallet" element={
-            <ProtectedRoute>
-              <WalletBalance />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/transactions" element={
-            <ProtectedRoute>
-              <TransactionHistory />
-            </ProtectedRoute>
-          } />
-          
-          {/* 404 route */}
-          <Route path="*" element={
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '60vh',
-              textAlign: 'center',
-              padding: '20px',
-            }}>
-              <h1 style={{ fontSize: '8rem', marginBottom: '1rem', color: '#667eea' }}>404</h1>
-              <h2 style={{ marginBottom: '1rem' }}>Page Not Found</h2>
-              <p>The page you're looking for doesn't exist or has been moved.</p>
-              <button
-                onClick={() => window.history.back()}
-                style={{
-                  marginTop: '2rem',
-                  padding: '10px 30px',
-                  background: '#667eea',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '25px',
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                }}
-              >
-                Go Back
-              </button>
+    <Router>
+      <Layout style={{ minHeight: '100vh' }}>
+        <Sider breakpoint="lg" collapsedWidth="0">
+          <div className="logo" style={{ color: 'white', padding: '16px', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+            🏙️ CityVerse
+          </div>
+          <Menu theme="dark" mode="inline" defaultSelectedKeys={['1']}>
+            <Menu.Item key="1" icon={<DashboardOutlined />}>
+              <Link to="/">داشبورد</Link>
+            </Menu.Item>
+            <Menu.Item key="2" icon={<MissionOutlined />}>
+              <Link to="/missions">ماموریت‌ها</Link>
+            </Menu.Item>
+            <Menu.Item
+              key="3"
+              icon={user ? <LogoutOutlined /> : <LoginOutlined />}
+              onClick={user ? handleLogout : handleLogin}
+            >
+              {user ? 'خروج' : 'ورود / ثبت‌نام'}
+            </Menu.Item>
+          </Menu>
+        </Sider>
+        <Layout>
+          <Header style={{ background: '#fff', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2>پلتفرم کسب درآمد بازی‌محور</h2>
+            <div>
+              {user ? (
+                <span>خوش آمدید، <strong>{user.email}</strong></span>
+              ) : (
+                <Button type="primary" onClick={handleLogin}>ورود به سیستم</Button>
+              )}
             </div>
-          } />
-        </Route>
-      </Routes>
-    </Suspense>
+          </Header>
+          <Content style={{ margin: '20px' }}>
+            <div className="site-layout-background" style={{ padding: 24, minHeight: 360 }}>
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/missions" element={<MissionsPage />} />
+              </Routes>
+            </div>
+          </Content>
+        </Layout>
+      </Layout>
+    </Router>
   );
 }
 
