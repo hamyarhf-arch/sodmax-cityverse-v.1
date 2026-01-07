@@ -1,0 +1,49 @@
+/* ریست و فونت پایه */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  direction: rtl;
+  background-color: #f5f5f5;
+}
+
+/* بهبود ظاهر لیست ماموریت‌ها */
+.ant-list-item {
+  transition: all 0.3s;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+}
+.ant-list-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #1890ff;
+}
+
+/* دکمه‌های عملیاتی */
+.ant-btn-primary {
+  background-color: #1890ff;
+  border-color: #1890ff;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/* استایل برای کارت‌ها */
+.ant-card {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* لینک‌ها */
+a {
+  color: #1890ff;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
