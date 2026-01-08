@@ -1,167 +1,284 @@
-require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+require('dotenv').config();
 
-// ==================== راه‌اندازی اولیه ====================
+// Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: process.env.CLIENT_URL || '*',
+    credentials: true
+}));
+app.use(bodyParser.json());
 app.use(express.json());
 
-// اتصال به Supabase
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
-// ==================== Middleware اعتبارسنجی ====================
-const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // فرمت: Bearer <token>
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ ERROR: SUPABASE_URL or SUPABASE_ANON_KEY is missing in .env file');
+    process.exit(1);
+}
 
-  if (!token) {
-    return res.status(401).json({ error: 'دسترسی غیرمجاز. توکن ارائه نشده است.' });
-  }
+const supabase = createClient(supabaseUrl, supabaseKey);
+console.log('✅ Supabase client initialized');
 
-  try {
-    // بررسی توکن با Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) throw new Error('توکن نامعتبر است.');
-    
-    // اضافه کردن اطلاعات کاربر به درخواست
-    req.user = user;
-    next();
-  } catch (error) {
-    return res.status(403).json({ error: 'توکن نامعتبر یا منقضی شده است.' });
-  }
-};
-
-// ==================== مسیرهای اصلی API ====================
-
-// 1. تست سلامت سرور
+// Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: '✅ سرور CityVerse فعال است.', timestamp: new Date().toISOString() });
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        supabase: supabaseUrl ? 'configured' : 'missing',
+        environment: process.env.NODE_ENV
+    });
 });
 
-// 2. دریافت تمام ماموریت‌های فعال (عمومی)
-app.get('/api/missions', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('missions')
-      .select(`
-        id, title, description, instructions, action_type, action_url, reward,
-        campaign:campaigns ( title, business:businesses ( name ) )
-      `)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    res.json({ missions: data });
-  } catch (error) {
-    console.error('خطا در دریافت ماموریت‌ها:', error);
-    res.status(500).json({ error: 'خطای داخلی سرور.' });
-  }
+// Test database connection
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .limit(1);
+        
+        if (error) throw error;
+        
+        res.json({
+            success: true,
+            message: 'Database connection successful',
+            data: data || 'Table might be empty'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
-// 3. ایجاد یک کمپین جدید (نیاز به احراز هویت)
-app.post('/api/campaigns', authenticateToken, async (req, res) => {
-  try {
-    const { title, description, budget_total, start_date, end_date } = req.body;
-    const userId = req.user.id;
+// User Registration
+app.post('/api/register', async (req, res) => {
+    try {
+        const { email, password, username } = req.body;
+        
+        if (!email || !password || !username) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email, password, and username are required'
+            });
+        }
 
-    // 1. ابتدا کسب‌وکار کاربر را پیدا کن
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('owner_id', userId)
-      .single();
+        // 1. Sign up with Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email,
+            password
+        });
 
-    if (businessError || !business) {
-      return res.status(400).json({ error: 'شما هیچ کسب‌وکاری برای ایجاد کمپین ندارید.' });
+        if (authError) {
+            console.error('Auth error:', authError);
+            return res.status(400).json({
+                success: false,
+                error: authError.message
+            });
+        }
+
+        // 2. Create user profile in profiles table
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+                id: authData.user.id,
+                email: email,
+                username: username,
+                coins: 100,
+                experience: 0,
+                level: 1,
+                created_at: new Date(),
+                updated_at: new Date()
+            });
+
+        if (profileError) {
+            console.error('Profile error:', profileError);
+            
+            // Rollback: delete auth user if profile creation fails
+            await supabase.auth.admin.deleteUser(authData.user.id);
+            
+            return res.status(400).json({
+                success: false,
+                error: 'Failed to create user profile: ' + profileError.message
+            });
+        }
+
+        res.status(201).json({
+            success: true,
+            message: 'User registered successfully',
+            user: {
+                id: authData.user.id,
+                email: authData.user.email,
+                username: username
+            }
+        });
+
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error: ' + error.message
+        });
     }
-
-    // 2. کمپین جدید را ایجاد کن
-    const { data: campaign, error: campaignError } = await supabase
-      .from('campaigns')
-      .insert([{
-        business_id: business.id,
-        title,
-        description,
-        budget_total,
-        start_date,
-        end_date,
-        status: 'draft'
-      }])
-      .select()
-      .single();
-
-    if (campaignError) throw campaignError;
-    res.status(201).json({ message: 'کمپین با موفقیت ایجاد شد.', campaign });
-
-  } catch (error) {
-    console.error('خطا در ایجاد کمپین:', error);
-    res.status(500).json({ error: 'خطای داخلی سرور.' });
-  }
 });
 
-// 4. شروع یک ماموریت توسط کاربر (نیاز به احراز هویت)
-app.post('/api/missions/:missionId/start', authenticateToken, async (req, res) => {
-  try {
-    const { missionId } = req.params;
-    const userId = req.user.id;
+// User Login
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and password are required'
+            });
+        }
 
-    // 1. بررسی وجود و فعال بودن ماموریت
-    const { data: mission, error: missionError } = await supabase
-      .from('missions')
-      .select('id, max_completions, current_completions')
-      .eq('id', missionId)
-      .eq('is_active', true)
-      .single();
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
 
-    if (missionError || !mission) {
-      return res.status(404).json({ error: 'ماموریت یافت نشد یا غیرفعال است.' });
+        if (error) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid credentials: ' + error.message
+            });
+        }
+
+        // Get user profile
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+        if (profileError) {
+            console.error('Profile fetch error:', profileError);
+        }
+
+        res.json({
+            success: true,
+            message: 'Login successful',
+            session: data.session,
+            user: {
+                ...data.user,
+                profile: profile || {}
+            }
+        });
+
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error: ' + error.message
+        });
     }
-
-    // 2. بررسی محدودیت تکرار
-    if (mission.max_completions && mission.current_completions >= mission.max_completions) {
-      return res.status(400).json({ error: 'سقف تکرار این ماموریت پر شده است.' });
-    }
-
-    // 3. بررسی اینکه کاربر قبلاً این ماموریت را نگرفته باشد
-    const { data: existingUserMission, error: checkError } = await supabase
-      .from('user_missions')
-      .select('id, status')
-      .eq('user_id', userId)
-      .eq('mission_id', missionId)
-      .maybeSingle();
-
-    if (existingUserMission) {
-      return res.status(400).json({ error: `شما قبلاً این ماموریت را گرفته‌اید. وضعیت: ${existingUserMission.status}` });
-    }
-
-    // 4. ایجاد رکورد user_missions
-    const { data: userMission, error: insertError } = await supabase
-      .from('user_missions')
-      .insert([{
-        user_id: userId,
-        mission_id: missionId,
-        status: 'started',
-        started_at: new Date().toISOString()
-      }])
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
-    res.json({ message: 'ماموریت با موفقیت شروع شد.', userMission });
-
-  } catch (error) {
-    console.error('خطا در شروع ماموریت:', error);
-    res.status(500).json({ error: 'خطای داخلی سرور.' });
-  }
 });
 
-// ==================== راه‌اندازی سرور ====================
+// Get user profile
+app.get('/api/user/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            user: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Update user profile
+app.put('/api/user/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        
+        // Remove protected fields
+        delete updates.id;
+        delete updates.created_at;
+        
+        updates.updated_at = new Date();
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Server error:', err.stack);
+    res.status(500).json({
+        success: false,
+        error: 'Something went wrong!',
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+    res.status(404).json({
+        success: false,
+        error: 'Endpoint not found'
+    });
+});
+
+// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 سرور بک‌اند CityVerse روی پورت ${PORT} اجرا شد.`);
-  console.log(`📡 آدرس سلامت: http://localhost:${PORT}/api/health`);
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📡 Supabase URL: ${supabaseUrl ? 'Configured' : 'NOT Configured'}`);
+    console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
+    console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
 });
